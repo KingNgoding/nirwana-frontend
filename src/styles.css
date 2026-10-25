@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: var(--brand);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+}
+
+:root {
+  --brand: #124c42;
+  --muted: #53635d;
+  --line: #dce3de;
+  color: #182b23;
+  background: #f7f8f4;
+}
+body {
+  margin: 0;
+}
+h1 {
+  font-size: clamp(2.25rem, 6vw, 3.6rem);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+.eyebrow {
+  color: var(--brand);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 5px;
+}
+nav a[aria-current="page"] {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 0.4em;
+}
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -5rem;
+  padding: 0.75rem;
+  background: white;
+  z-index: 10;
+}
+.skip-link:focus {
+  top: 1rem;
+}
