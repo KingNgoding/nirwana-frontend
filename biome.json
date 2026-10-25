@@ -1,0 +1,18 @@
+{
+  "files": {
+    "includes": [
+      "**",
+      "!dist",
+      "!test-results",
+      "!playwright-report",
+      "!coverage",
+      "!src/shared/api/schema.d.ts",
+      "!contracts/openapi.json",
+      "!package-lock.json"
+    ]
+  },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "formatter": { "enabled": true, "indentStyle": "space" },
+  "linter": { "enabled": true, "rules": { "preset": "recommended" } },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

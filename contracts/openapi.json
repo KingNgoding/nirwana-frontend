@@ -1,0 +1,2004 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nirwana Management System API",
+    "description": "Contract between the NMS frontend and backend. Operations marked x-nms-draft answer 501 until their story is built.",
+    "version": "0.1.1"
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-nms_session"
+      }
+    },
+    "schemas": {
+      "CategoryList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Category": {
+        "type": "object",
+        "required": [
+          "categoryId",
+          "name",
+          "version"
+        ],
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "a string at most 64 character(s) long",
+            "title": "maxLength(64)",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "description": "a string at most 100 character(s) long",
+            "title": "maxLength(100)",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "a string at most 100 character(s) long",
+            "title": "maxLength(100)",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/Category"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryUpdate": {
+        "type": "object",
+        "required": [
+          "name",
+          "version"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "a string at most 100 character(s) long",
+            "title": "maxLength(100)",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Int": {
+        "type": "integer",
+        "description": "an integer",
+        "title": "int"
+      },
+      "AuthUser": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "Admin",
+          "Officer",
+          "Teknisi",
+          "Client"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "password"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "E.164 phone number with the + prefix, already normalised.",
+            "examples": [
+              "+62811000001"
+            ],
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "password": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false
+      },
+      "OtpAccepted": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "examples": [
+              "Jika nomor terdaftar, kode dikirim lewat WhatsApp."
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "The same body for registered and unregistered numbers."
+      },
+      "OtpRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "purpose"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "E.164 phone number with the + prefix, already normalised.",
+            "examples": [
+              "+62811000001"
+            ],
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "activation",
+              "recovery"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ActivateRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "otp",
+          "password",
+          "passwordConfirmation"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "E.164 phone number with the + prefix, already normalised.",
+            "examples": [
+              "+62811000001"
+            ],
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "otp": {
+            "type": "string",
+            "description": "a string matching the pattern ^\\d{6}$",
+            "examples": [
+              "000000"
+            ],
+            "pattern": "^\\d{6}$"
+          },
+          "password": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "pageSize": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "customerId",
+          "customerName",
+          "phone",
+          "registrationDate",
+          "customerAddress",
+          "accountStatus",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Digits only, kept as text so leading zeros stay.",
+            "examples": [
+              "1042"
+            ],
+            "pattern": "^\\d{1,20}$"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "a string at most 150 character(s) long",
+            "title": "maxLength(150)",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "phone": {
+            "type": "string",
+            "description": "E.164 phone number with the + prefix, already normalised.",
+            "examples": [
+              "+62811000001"
+            ],
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "registrationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "customerAddress": {
+            "type": "string",
+            "description": "a string at most 500 character(s) long",
+            "title": "maxLength(500)",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "accountStatus": {
+            "type": "string",
+            "enum": [
+              "Belum Aktif",
+              "Aktif",
+              "Nonaktif"
+            ]
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/Customer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "a string at most 150 character(s) long",
+            "title": "maxLength(150)",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "customerAddress": {
+            "type": "string",
+            "description": "a string at most 500 character(s) long",
+            "title": "maxLength(500)",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServicePage": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "pageSize": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Service": {
+        "type": "object",
+        "required": [
+          "serviceNumber",
+          "customerId",
+          "package",
+          "region",
+          "serviceAddress",
+          "latitude",
+          "longitude",
+          "installDate",
+          "status",
+          "notes",
+          "version"
+        ],
+        "properties": {
+          "serviceNumber": {
+            "type": "string",
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$",
+            "examples": [
+              "2026-1042-01"
+            ],
+            "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+          },
+          "customerId": {
+            "type": "string",
+            "description": "Digits only, kept as text so leading zeros stay.",
+            "examples": [
+              "1042"
+            ],
+            "pattern": "^\\d{1,20}$"
+          },
+          "package": {
+            "type": "string",
+            "description": "a string at most 100 character(s) long",
+            "title": "maxLength(100)",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "region": {
+            "type": "string",
+            "description": "a string at most 100 character(s) long",
+            "title": "maxLength(100)",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "serviceAddress": {
+            "type": "string",
+            "description": "a string at most 500 character(s) long",
+            "title": "maxLength(500)",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -90 and 90",
+                "title": "between(-90, 90)",
+                "minimum": -90,
+                "maximum": 90
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -180 and 180",
+                "title": "between(-180, 180)",
+                "minimum": -180,
+                "maximum": 180
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Aktif",
+              "Nonaktif"
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "a string at most 1000 character(s) long",
+                "title": "maxLength(1000)",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Ticket": {
+        "type": "object",
+        "required": [
+          "ticketNumber",
+          "serviceNumber",
+          "title",
+          "handlingStatus",
+          "reviewStatus",
+          "submittedAt",
+          "customerId",
+          "route",
+          "complaint",
+          "description",
+          "categoryId",
+          "photoCount",
+          "version"
+        ],
+        "properties": {
+          "ticketNumber": {
+            "type": "string",
+            "description": "Ticket number. Its format is set by the ticket stories (NMS-28)."
+          },
+          "serviceNumber": {
+            "type": "string",
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$",
+            "examples": [
+              "2026-1042-01"
+            ],
+            "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "handlingStatus": {
+            "$ref": "#/components/schemas/HandlingStatus"
+          },
+          "reviewStatus": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customerId": {
+            "type": "string",
+            "description": "Digits only, kept as text so leading zeros stay.",
+            "examples": [
+              "1042"
+            ],
+            "pattern": "^\\d{1,20}$"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "form",
+              "ai"
+            ]
+          },
+          "complaint": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categoryId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "a string at most 64 character(s) long",
+                "title": "maxLength(64)",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photoCount": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HandlingStatus": {
+        "type": "string",
+        "enum": [
+          "New",
+          "Open",
+          "In Progress",
+          "Pending",
+          "Selesai"
+        ]
+      },
+      "ReviewStatus": {
+        "type": "string",
+        "enum": [
+          "Menunggu Review",
+          "Disetujui",
+          "Tidak Wajib"
+        ]
+      },
+      "TicketSubmission": {
+        "type": "object",
+        "required": [
+          "serviceNumber",
+          "route",
+          "complaint",
+          "title",
+          "description"
+        ],
+        "properties": {
+          "serviceNumber": {
+            "type": "string",
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$",
+            "examples": [
+              "2026-1042-01"
+            ],
+            "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "form",
+              "ai"
+            ]
+          },
+          "complaint": {
+            "type": "string",
+            "description": "a string at most 4000 character(s) long",
+            "title": "maxLength(4000)",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "title": {
+            "type": "string",
+            "description": "a string at most 150 character(s) long",
+            "title": "maxLength(150)",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "description": {
+            "type": "string",
+            "description": "a string at most 4000 character(s) long",
+            "title": "maxLength(4000)",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "a string at most 64 character(s) long",
+            "title": "maxLength(64)",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "maxItems": 5
+          }
+        },
+        "additionalProperties": false
+      },
+      "TicketPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cursor for the next page, or null on the last page."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TicketSummary": {
+        "type": "object",
+        "required": [
+          "ticketNumber",
+          "serviceNumber",
+          "title",
+          "handlingStatus",
+          "reviewStatus",
+          "submittedAt"
+        ],
+        "properties": {
+          "ticketNumber": {
+            "type": "string",
+            "description": "Ticket number. Its format is set by the ticket stories (NMS-28)."
+          },
+          "serviceNumber": {
+            "type": "string",
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$",
+            "examples": [
+              "2026-1042-01"
+            ],
+            "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "handlingStatus": {
+            "$ref": "#/components/schemas/HandlingStatus"
+          },
+          "reviewStatus": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "security": [
+    {
+      "sessionCookie": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "System"
+        ],
+        "security": [],
+        "summary": "Liveness and database check",
+        "responses": {
+          "200": {
+            "description": "The API and the database respond",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database does not respond",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ticket-categories": {
+      "get": {
+        "operationId": "getTicketCategories",
+        "x-nms-draft": true,
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Read the ticket category catalogue",
+        "description": "Authenticated roles read the catalogue. Initial entries follow DEC-01 K4; names are editable, IDs are stable. A disaster category does not set Critical automatically. NMS-32 AC8.",
+        "responses": {
+          "200": {
+            "description": "The category catalogue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postTicketCategories",
+        "x-nms-draft": true,
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Add a ticket category (Admin only)",
+        "responses": {
+          "201": {
+            "description": "The created category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ticket-categories/{categoryId}": {
+      "patch": {
+        "operationId": "patchTicketCategoriesByCategoryId",
+        "x-nms-draft": true,
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Rename a ticket category (Admin only)",
+        "description": "Send the version read. Renaming preserves categoryId and ticket references. A stale version returns VERSION_CONFLICT with current. Catalogue management is distinct from correcting one ticket's category (NMS-32 AC8).",
+        "responses": {
+          "200": {
+            "description": "The updated category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version; current holds the latest category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryConflict"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "categoryId",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(64)",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "description": "a string at most 64 character(s) long"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "postAuthLogin",
+        "x-nms-draft": true,
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign in with phone number and password",
+        "description": "Sets the session cookie. Five failed attempts in 15 minutes delay access for 15 minutes (ER-03-05). Attempts are counted per submitted phone number whether or not it is registered, and the delay answers 429 RATE_LIMITED, so the response never shows that a number exists.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AuthUser"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong phone number or password. The same answer for unknown numbers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. Retry-After says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/otp/request": {
+      "post": {
+        "operationId": "postAuthOtpRequest",
+        "x-nms-draft": true,
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request an OTP by WhatsApp for activation or recovery",
+        "description": "Always answers 202 with the same body, so a phone number cannot be guessed (DEC-05). Limits: 60 seconds between requests and 5 per number per hour.",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. Retry-After says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/activate": {
+      "post": {
+        "operationId": "postAuthActivate",
+        "x-nms-draft": true,
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Activate an account with a valid OTP and set the password",
+        "description": "Recovery uses the same shape. A valid OTP ends all earlier sessions and OTPs. At most 5 wrong attempts per OTP.",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Password set. The user signs in next."
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The OTP is wrong, expired, or already used. One answer for all three.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. Retry-After says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "operationId": "getCustomers",
+        "x-nms-draft": true,
+        "tags": [
+          "Customers"
+        ],
+        "summary": "List customers",
+        "description": "Offset pagination. Admin and Officer only.",
+        "responses": {
+          "200": {
+            "description": "A page of customers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string",
+              "title": "greaterThanOrEqualTo(1)"
+            },
+            "description": "a number greater than or equal to 1"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string",
+              "title": "between(1, 100)"
+            },
+            "description": "a number between 1 and 100"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(150)",
+              "maxLength": 150
+            },
+            "description": "a string at most 150 character(s) long"
+          }
+        ]
+      }
+    },
+    "/customers/{customerId}": {
+      "get": {
+        "operationId": "getCustomersByCustomerId",
+        "x-nms-draft": true,
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Get one customer",
+        "responses": {
+          "200": {
+            "description": "The customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchCustomersByCustomerId",
+        "x-nms-draft": true,
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Update a customer",
+        "description": "Send the version you read. If someone else changed the record first, the answer is 409 with the current record and nothing is overwritten (ER-06-40).",
+        "responses": {
+          "200": {
+            "description": "The updated customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The version is stale. The body carries the current record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerConflict"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/services": {
+      "get": {
+        "operationId": "getCustomersByCustomerIdServices",
+        "x-nms-draft": true,
+        "tags": [
+          "Services"
+        ],
+        "summary": "List the services of a customer",
+        "responses": {
+          "200": {
+            "description": "A page of services",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string",
+              "title": "greaterThanOrEqualTo(1)"
+            },
+            "description": "a number greater than or equal to 1"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string",
+              "title": "between(1, 100)"
+            },
+            "description": "a number between 1 and 100"
+          }
+        ]
+      }
+    },
+    "/tickets": {
+      "post": {
+        "operationId": "postTickets",
+        "x-nms-draft": true,
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Submit a ticket (Kirim)",
+        "description": "multipart/form-data with the photos in the same request, so there is no draft storage. The Idempotency-Key header makes a retry safe: the same key with the same content returns the stored ticket with Idempotent-Replayed: true.",
+        "responses": {
+          "200": {
+            "description": "A retry. The stored ticket is returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ticket"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The ticket was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ticket"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The same key is still being processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The key was already used for different content.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(64)",
+              "minLength": 16,
+              "maxLength": 64
+            },
+            "required": true,
+            "description": "One key per logical submission. Retry a timeout with the same key and identical fields/files. New submissions or changed content use a new key; resolve an uncertain earlier submission first."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketSubmission"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketSubmission"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTickets",
+        "x-nms-draft": true,
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "List tickets",
+        "description": "Cursor pagination, newest first. Visibility follows the caller's role.",
+        "responses": {
+          "200": {
+            "description": "A page of tickets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Draft contract. The endpoint is not implemented yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(200)",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "a string at most 200 character(s) long"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "string",
+              "title": "between(1, 100)"
+            },
+            "description": "a number between 1 and 100"
+          }
+        ]
+      }
+    }
+  }
+}
