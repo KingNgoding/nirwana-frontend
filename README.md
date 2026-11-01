@@ -4,6 +4,18 @@ Frontend akun, autentikasi, dan hak akses Nirwana untuk FS03/FS04. Pekerjaan ber
 
 Ketujuh acuan, keputusan implementasi, dan selisih kebutuhan/kontrak tercatat di [docs/WEEK-1.md](docs/WEEK-1.md). Tampilan mengikuti halaman autentikasi Hamijeu, termasuk logo, susunan dua kolom, warna biru, dan tema terang/gelap. Kredensial serta role switcher demo tidak diimpor.
 
+## Pratinjau
+
+Setelah menjalankan `npm run dev`, buka [halaman login](http://127.0.0.1:5173/login). Halaman [aktivasi akun](http://127.0.0.1:5173/first-login), [pemulihan password](http://127.0.0.1:5173/forgot-password), dan [panduan akses](http://127.0.0.1:5173/bantuan) dapat dilihat tanpa login.
+
+Alamat di atas hanya dapat dibuka pada komputer yang menjalankan server pengembangan. Belum tersedia URL pratinjau publik. Untuk menguji login dan workspace empat peran, gunakan akun uji Aktif dari tim backend; tidak ada kredensial demo bawaan frontend.
+
+Tampilan login desktop:
+
+![Pratinjau halaman login Nirwana pada desktop](docs/preview/login-desktop.png)
+
+[Lihat pratinjau tampilan ponsel](docs/preview/login-mobile.png). Gambar ini merupakan tangkapan layar hasil pemeriksaan browser lokal.
+
 ## Menjalankan
 
 Gunakan **Node 24.22.1 LTS dan npm 11.19.1**. Runtime mesin yang berada di PATH saat pengerjaan adalah Node 26, sehingga pengujian memakai distribusi resmi Node 24 yang diunduh ke folder `../.tools/node-v24.22.1-win-x64`. SHA256 arsip diperiksa terhadap `SHASUMS256.txt` resmi. PATH sistem tidak diubah.
