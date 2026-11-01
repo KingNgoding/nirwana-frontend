@@ -1,6 +1,6 @@
 # NMS Frontend: Week 1
 
-Frontend akun, autentikasi, dan hak akses Nirwana untuk FS03/FS04. Pekerjaan berada di salinan lokal [KingNgoding/nirwana-frontend](https://github.com/KingNgoding/nirwana-frontend), branch `NMS-20/week-1-auth`. Fondasi dan riwayat disalin dari [repo resmi](https://github.com/nirwana-system/nms-frontend), commit `b591ae908957a4d147d1486d00095f6f95a629de`. Repo resmi, backend, Jira, dan deployment tidak diubah. Publikasi diarahkan ke repo percobaan ini atas instruksi Faishal. Bukti CI remote diperiksa terpisah dari hasil lokal.
+Frontend akun, autentikasi, dan hak akses Nirwana untuk FS03/FS04. Pekerjaan berada di salinan lokal [KingNgoding/nirwana-frontend](https://github.com/KingNgoding/nirwana-frontend), branch `NMS-20/week-1-auth`. Fondasi dan riwayat disalin dari [repo resmi](https://github.com/nirwana-system/nms-frontend), commit `b591ae908957a4d147d1486d00095f6f95a629de`. Pengembangan dilakukan di repo percobaan. Atas instruksi Faishal pada 1 November 2026, target sinkronisasi hasil Week 1 kini juga mencakup repo resmi; backend, Jira, dan deployment tidak diubah. Bukti CI remote diperiksa terpisah dari hasil lokal.
 
 Ketujuh acuan, keputusan implementasi, dan selisih kebutuhan/kontrak tercatat di [docs/WEEK-1.md](docs/WEEK-1.md). Tampilan mengikuti halaman autentikasi Hamijeu, termasuk logo, susunan dua kolom, warna biru, dan tema terang/gelap. Kredensial serta role switcher demo tidak diimpor.
 
