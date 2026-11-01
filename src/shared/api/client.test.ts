@@ -16,7 +16,8 @@ describe("API boundary", () => {
         ),
     );
     await api.GET("/customers", { params: { query: { page: "1" } } });
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getQueryData(["user", "synthetic"])).toBeUndefined();
+    expect(queryClient.getQueryData(["session"])).toBeNull();
   });
   it.each([
     "file:///secret",

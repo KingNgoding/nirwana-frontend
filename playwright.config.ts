@@ -8,8 +8,9 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
+    env: { VITE_API_BASE_URL: "http://localhost:3000" },
     command: "npm run dev -- --port 4173 --strictPort",
     url: "http://127.0.0.1:4173",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 });

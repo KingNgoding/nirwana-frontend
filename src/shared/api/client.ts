@@ -9,8 +9,15 @@ export const api = createClient<paths>({
 });
 
 api.use({
-  async onResponse({ response }) {
-    if (response.status === 401) await clearUserSessionCache();
+  async onResponse({ response, schemaPath }) {
+    const publicAuth = [
+      "/auth/login",
+      "/auth/activate",
+      "/auth/otp/request",
+      "/auth/phone-change/confirm",
+    ].includes(schemaPath);
+    if (response.status === 401 && !publicAuth)
+      await clearUserSessionCache({ cancelSession: schemaPath !== "/auth/me" });
     return response;
   },
 });

@@ -1,28 +1,70 @@
-# NMS Frontend
+# NMS Frontend: Week 1
 
-Fondasi frontend privat Nirwana Management System untuk [NMS-69](https://waxarsatia.atlassian.net/browse/NMS-69). Dibangun ulang dari nol atas instruksi Faishal pada 25 Oktober 2026. Tidak mengimpor kode, aset, atau riwayat prototipe lama. Penghapusan repo lama dilakukan owner organisasi. Repo pengganti memakai nama yang sama, tetapi memiliki identitas GitHub dan riwayat baru; tautan PR lama tidak menjadi bukti implementasi baru.
+Frontend akun, autentikasi, dan hak akses Nirwana untuk FS03/FS04. Pekerjaan berada di salinan lokal [KingNgoding/nirwana-frontend](https://github.com/KingNgoding/nirwana-frontend), branch `NMS-20/week-1-auth`. Fondasi dan riwayat disalin dari [repo resmi](https://github.com/nirwana-system/nms-frontend), commit `b591ae908957a4d147d1486d00095f6f95a629de`. Repo resmi, backend, Jira, dan deployment tidak diubah. Publikasi diarahkan ke repo percobaan ini atas instruksi Faishal. Bukti CI remote diperiksa terpisah dari hasil lokal.
 
-## Menjalankan dari clone bersih
+Ketujuh acuan, keputusan implementasi, dan selisih kebutuhan/kontrak tercatat di [docs/WEEK-1.md](docs/WEEK-1.md). Tampilan mengikuti halaman autentikasi Hamijeu, termasuk logo, susunan dua kolom, warna biru, dan tema terang/gelap. Kredensial serta role switcher demo tidak diimpor.
 
-Gunakan Node **24.22.1 LTS** dan npm **11.19.1** bawaan distribusi tersebut. Node 26 bukan runtime pengujian proyek. Versi dependensi langsung dikunci di package.json; seluruh pohon dependensi dikunci di package-lock.json. Jangan memakai `--force` atau `--legacy-peer-deps`.
+## Menjalankan
 
-Selama PR fondasi belum digabung, clone branch `NMS-69/frontend-foundation` dengan `git clone --branch NMS-69/frontend-foundation https://github.com/nirwana-system/nms-frontend.git`. Setelah merge, clone default di bawah sudah memuat fondasi.
+Gunakan **Node 24.22.1 LTS dan npm 11.19.1**. Runtime mesin yang berada di PATH saat pengerjaan adalah Node 26, sehingga pengujian memakai distribusi resmi Node 24 yang diunduh ke folder `../.tools/node-v24.22.1-win-x64`. SHA256 arsip diperiksa terhadap `SHASUMS256.txt` resmi. PATH sistem tidak diubah.
 
 ```powershell
-git clone https://github.com/nirwana-system/nms-frontend.git
-cd nms-frontend
+# Khusus workspace sesi ini, bila Node di PATH masih versi 26:
+$env:PATH = (Resolve-Path '../.tools/node-v24.22.1-win-x64').Path + ';' + $env:PATH
+
 npm ci
+# Pada clone baru, pilih konfigurasi lokal atau staging:
 Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Buka http://127.0.0.1:5173. `VITE_API_BASE_URL` adalah URL publik, bukan tempat menyimpan rahasia. Konfigurasi lokal memakai http://localhost:3000; contoh staging ada di `.env.staging.example`. Untuk build staging, salin contoh ke `.env.staging.local` lalu jalankan `npm run build -- --mode staging`. Variabel VITE masuk bundle browser. URL harus HTTP(S), tanpa kredensial, query, atau fragment. Semua nilai contoh dan fixture tes sintetis.
+Buka `http://127.0.0.1:5173`. Contoh lokal memakai `http://localhost:3000`. Untuk API staging, isi `.env.local` dengan `VITE_API_BASE_URL=https://api-staging.nirwana.id`; konfigurasi lokal sesi ini sudah memakai alamat tersebut. Restart Vite setelah mengubah konfigurasi. Tidak ada rahasia di konfigurasi frontend. Semua `VITE_*` masuk ke bundle browser.
+
+Untuk clone mandiri, pasang Node 24 melalui distribusi resmi atau pengelola versi yang Anda gunakan; folder `.tools` adalah runtime lokal sesi, bukan bagian dari repo. Instalasi dependency tetap dari `package-lock.json`, tanpa `--force` atau `--legacy-peer-deps`.
+
+## Halaman dan perilaku
+
+| Halaman                                        | Kegunaan                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `/login`                                       | Nomor WhatsApp, password, pesan kredensial netral, dan cooldown dari server         |
+| `/first-login`                                 | Permintaan OTP aktivasi lalu kode dan password baru                                 |
+| `/forgot-password`                             | Pemulihan akses dengan bentuk kontrak yang sama                                     |
+| `/bantuan`                                     | Panduan aktivasi, pemulihan, dan kendala WhatsApp                                   |
+| `/admin`, `/officer`, `/technician`, `/client` | Workspace dasar sesuai peran dari server                                            |
+| `/<workspace>/security`                        | Ganti password dengan password saat ini dan konfirmasi                              |
+| `/admin/accounts`                              | Daftar/cari/filter/page staf, tambah, ubah nama/peran, aktif/nonaktif dengan alasan |
+| `/akses-ditolak`                               | Penolakan halaman untuk peran yang tidak sesuai                                     |
+
+`/` menuju login; `/reset-password` menuju pemulihan. Dashboard operasional, data pelanggan, tiket, peta, voucher, dan profil perusahaan lengkap mengikuti minggu berikutnya. Workspace tidak menampilkan metrik atau data operasional palsu.
+
+Login dan navigasi terlindungi memeriksa `/auth/me`. Cookie disertakan dengan `credentials: include`; tidak ada token, peran pilihan, atau sesi di localStorage/sessionStorage. React state/Context menangani UI dan maksud logout; Query menangani data server. Form memakai RHF dan resolver resmi Effect Schema, tanpa Zod atau cache tambahan. Mutasi tidak diulang otomatis.
+
+Logout, perubahan password, dan 401 pada operasi terlindungi membuang data pengguna. Permintaan sesi lama dibatalkan supaya respons terlambat tidak mengembalikan identitas sebelumnya. Pengecualian pembatalan hanya berlaku ketika `/auth/me` sendiri sedang menyelesaikan respons 401. Kode OTP salah pada endpoint publik tidak dianggap sebagai kedaluwarsa sesi pengguna lain.
+
+OTP hanya diminta lewat tindakan pengguna. UI menunggu 60 detik untuk kirim ulang dan memakai lima menit sebagai perkiraan masa kode; keputusan server tetap berlaku. Respons 202 tidak membuktikan nomor terdaftar atau pesan terkirim. UI baru menyatakan aktivasi/pemulihan berhasil setelah respons 204, lalu meminta login baru. Tidak ada endpoint verifikasi OTP terpisah yang dibuat oleh frontend.
+
+Konflik versi akun menampilkan data terbaru untuk ditinjau. Penyimpanan ulang membutuhkan tindakan pengguna. Alasan dan konfirmasi wajib untuk perubahan status. Admin tidak melihat atau menetapkan OTP/password milik staf.
+
+## Kontrak dan konfigurasi sesi
+
+[contracts/README.md](contracts/README.md) mencatat asal dan hash OpenAPI **0.2.0** dari backend commit `63008d7c6c01ea53859b277e70c75db135995e4c`. Tipe diregenerasi dari artefak lokal yang dikunci. Endpoint akun dan autentikasi pada versi ini sudah diimplementasikan; operasi tiket tetap draf. Menerapkan kontrak di repo percobaan ini tidak mengubah penerimaan NMS-67.
+
+```powershell
+npm run api:generate
+npm run api:check
+```
+
+Pada 1 November 2026, pembacaan staging `/openapi.json` menjawab versi 0.2.0. Pemeriksaan anonim `/auth/me` menjawab 401 dan preflight `/auth/login` menjawab 204, dengan origin `http://127.0.0.1:5173` dan credentials diizinkan. Ini membuktikan endpoint dan header CORS pada waktu pemeriksaan, belum membuktikan sesi login browser atau pengiriman WhatsApp.
+
+Cookie produksi tetap ditetapkan backend: `__Host-nms_session`, HttpOnly, Secure, SameSite=Lax. Dokumentasi backend menjelaskan mode staging yang bisa memakai SameSite=None dan pengirim stub. Frontend tidak mengubah atau mengasumsikan mode tersebut. Akun uji, kesiapan gateway, pembatasan origin, dan pengujian cookie browser nyata perlu dikoordinasikan dengan backend. Jangan menaruh fixed OTP atau password akun ke kode frontend.
+
+## Pemeriksaan
 
 ```powershell
 npm run lint
 npm run format
 npm run typecheck
-npm run test
+npm test
 npm run api:check
 npm run build
 npx playwright install chromium
@@ -30,57 +72,16 @@ npm run test:e2e
 npm run check
 ```
 
-`check` menjalankan lint, typecheck seluruh aplikasi, unit/component tests, pemeriksaan regenerasi API, dan build. `test:e2e` terpisah karena memerlukan browser Chromium; CI menjalankan keduanya. `format` menulis perbaikan format/import. `preview` menyajikan hasil build untuk pemeriksaan lokal. Hosting SPA kelak harus mengarahkan deep link ke index.html; deployment publik belum diaktifkan.
+`check` mencakup lint, typecheck, tes unit/komponen, regenerasi tipe, dan build. Playwright menjalankan Chromium desktop dan Pixel 7 dengan respons API sintetis terkontrol. Server tes selalu memakai URL API `http://localhost:3000`, terlepas dari `.env.local`, dan menolak memakai ulang server lain. Tangkapan layar ada di `test-results/`; trace disimpan ketika gagal. Pengujian tidak memanggil mutasi staging atau mengirim WhatsApp.
 
-## Struktur dan batas tanggung jawab
+CI bawaan fondasi dipertahankan: lockfile, `check`, dan tes browser; tidak melakukan deployment atau perubahan Jira. Hasil historis di `docs/VERIFICATION.md` adalah bukti fondasi 25 Oktober, bukan bukti perubahan Week 1. Bukti baru ada di [docs/WEEK-1-VERIFICATION.md](docs/WEEK-1-VERIFICATION.md).
 
-- `src/app`: satu Data Router di luar React tree, layout, route beranda/tentang, 404 dan error boundary.
-- `src/pages`: halaman fondasi yang menyatakan batas fitur secara eksplisit. Halaman ini bukan implementasi story layanan atau pengganti desain Hamiz.
-- `src/shared/api`: konfigurasi origin, klien openapi-fetch, tipe hasil generator, schema/serializer kontrak tiket. Belum terhubung ke form produksi.
-- `src/shared/query-client.ts`: satu pemilik cache server dan invalidasi, tanpa retry mutasi otomatis. Pembatalan query dan pembersihan cache dijalankan pada 401; alur logout mendatang wajib memanggil `clearUserSessionCache`.
-- `contracts`: salinan artefak OpenAPI backend berversi beserta asal dan hash.
-- `tests`: setup RTL dan uji browser desktop/mobile. Tidak memanggil endpoint produksi atau memakai data pelanggan.
+## Batas penerimaan
 
-React state menangani UI; Context hanya bila diperlukan. Query menangani data server. React Hook Form menangani form; Effect Schema menangani validasi. Effect dipakai untuk komposisi layanan yang memang membutuhkan alur tersebut, bukan runtime per komponen. Tidak ada Zod kedua, Effect Atom, global store, atau lapisan cache/retry lain.
+- **Status Client:** API mutasi status ada, tetapi respons Customer tidak menyediakan `accountId` dan versi akun, sedangkan daftar staf mengecualikan Client. UI pengelolaan status saat ini hanya untuk staf. ID/versi pelanggan tidak boleh dipakai sebagai ID/versi akun.
+- **Pengalihan akun Belum Aktif:** AC-US002-04 meminta pengalihan sesuai status. Backend 0.2.0 sengaja memberi 401 netral untuk Belum Aktif, Nonaktif, dan kredensial salah. UI menyediakan tautan aktivasi dan bantuan tanpa menebak status.
+- **Password DDMMYYYY:** UI menolak password baru berbentuk tanggal kalender. Backend yang diperiksa belum menegakkan aturan ini; pemeriksaan UI tidak menggantikan validasi server AC-PDP-10.
+- **UAT nyata:** empat peran, OTP WhatsApp, pencabutan sesi server, dan penolakan akses langsung di server belum diuji memakai akun staging. Lulus tes frontend tidak menjadikan Week 1 diterima QA.
+- **Toolchain:** lockfile bawaan memiliki tiga temuan moderate yang berantai dari minimatch melalui alat generator OpenAPI. Tidak ada dependency produksi yang dilaporkan oleh audit tersebut. Versi tidak diturunkan otomatis melalui `audit fix --force`. Build juga masih memberi peringatan chunk utama lebih dari 500 kB; halaman auth dan akun sudah dipisah lewat lazy routes.
 
-## Stack dan kompatibilitas
-
-Target mengikuti keputusan Denis pada 25 Oktober 2026: React 19, TypeScript strict seluruh aplikasi, Vite 8.3 dengan plugin resmi React, React Router Data Mode, TanStack Query 5, Effect 3.x, React Hook Form 7, openapi-typescript 7/openapi-fetch 0.17, Tailwind CSS 4/CSS variables/Lucide, Vitest/RTL/Playwright, Biome 2/tsc.
-
-Resolver resmi `@hookform/resolvers/effect-ts` memakai seri **5**, karena seri 6 mensyaratkan Effect 4. TypeScript memakai seri **5.9**, sesuai peer dependency openapi-typescript 7. Uji komponen membuktikan input invalid ditolak dan input valid diterima melalui RHF dan Effect 3. Biome menjadi satu linter/formatter dengan aturan Hooks recommended; tidak ada ESLint/Prettier paralel.
-
-MapLibre GL JS + PMTiles self-hosted wilayah Aceh sudah ditetapkan untuk story peta, tetapi dependensi dan fitur peta belum dimuat pada fondasi. Login/OTP, form nyata, pengelolaan peran, integrasi tiket dan layanan, serta handoff UI Hamiz mengikuti story masing-masing. Tidak ada login demo yang mengaku sebagai sesi nyata.
-
-## Kontrak API dan autentikasi
-
-Lihat [contracts/README.md](contracts/README.md). Regenerasi memakai artefak lokal yang dikunci, bukan URL staging yang bisa berubah:
-
-```powershell
-npm run api:generate
-npm run api:check
-```
-
-Perubahan kontrak mengikuti versioning NMS-67. Ambil artefak backend dari commit yang ditinjau, perbarui asal/hash, regenerasi tipe, tinjau diff, dan jalankan seluruh check. CI menolak drift tipe. Pemeriksaan breaking changes kontrak tetap dimiliki CI backend; tidak diklaim diuji ulang oleh frontend.
-
-`credentials: include` dipasang pada klien. Cookie sesi ditentukan backend: HttpOnly/Secure/SameSite=Lax, tanpa token di localStorage. Frontend tidak bisa menetapkan flag cookie server. Origin FE final, CORS allowlist, dan syarat satu situs tetap dikoordinasikan dengan NMS-68 sebelum uji sesi browser nyata. Tidak memakai Better Auth default.
-
-Serializer tiket menjaga complaint asli terpisah dari description, serviceNumber API, categoryId opsional, dan foto File asli pada field photos berulang. Maksimal 5 JPEG/PNG, masing-masing 5 MiB; title 150, complaint/description 4.000 karakter. Pemeriksaan isi berkas dan otorisasi tetap backend. Satu Idempotency-Key dan payload identik dipakai ulang hanya atas tindakan caller ketika hasil belum pasti; tidak membuat kunci baru atau mengulang mutasi otomatis. Konflik 409 harus ditinjau pengguna, bukan diulang otomatis. Pesan error server tidak dicetak ke log atau UI tanpa pemetaan kode.
-
-Endpoint fitur kontrak 0.1.1 masih draf dan dapat menjawab 501. Tes klien tidak membuktikan login, OTP, idempotensi tersimpan atau tiket operasional selesai. NMS-67 tetap Done berdasarkan penerimaan historisnya; reset frontend tidak membuka ulang kontrak itu.
-
-## Workflow dan kepemilikan
-
-Pemilik implementasi/review frontend: Faishal. Denis meninjau kontrak FE–BE, Hamiz handoff UI, Dimas verifikasi QA. Repo privat milik nirwana-system. Konfirmasi akses langsung/inherited dan GitHub for Jira harus memakai identitas repo baru, bukan bukti repo yang dihapus.
-
-Branch `NMS-69/frontend-foundation`, commit dan judul PR mencantumkan key NMS. CI memasang dependensi dari lockfile lalu menjalankan check dan browser desktop/mobile. Workflow hanya memiliki contents:read, tidak deploy dan tidak memindahkan status Jira. Merge tidak menjadikan NMS-69 Done: README, keputusan stack, bukti clone bersih/CI/visual dan Verify Dimas masih menjadi gerbang penerimaan.
-
-## Referensi implementasi
-
-Dokumentasi resmi digunakan sebagai pengganti Context7/find-docs yang tidak tersedia:
-
-- [NMS-69 dan persetujuan Denis](https://waxarsatia.atlassian.net/browse/NMS-69)
-- [Keputusan teknologi](https://waxarsatia.atlassian.net/wiki/spaces/NMS/pages/3506186)
-- [Konvensi API](https://waxarsatia.atlassian.net/wiki/spaces/NMS/pages/3440677)
-- [React Router Data Mode](https://reactrouter.com/start/data/installation)
-- [RHF resolver resmi](https://github.com/react-hook-form/resolvers#effect-ts)
-- [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)
+Dokumentasi resmi dipakai sebagai fallback karena Context7/find-docs tidak tersedia: [React Router Data Mode](https://reactrouter.com/7.18.4/start/data/routing), [RHF Effect resolver](https://github.com/react-hook-form/resolvers#effect-ts), dan [openapi-fetch](https://openapi-ts.dev/openapi-fetch/).

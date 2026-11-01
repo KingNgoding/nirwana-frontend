@@ -21,47 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ticket-categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read the ticket category catalogue
-         * @description Authenticated roles read the catalogue. Initial entries follow DEC-01 K4; names are editable, IDs are stable. A disaster category does not set Critical automatically. NMS-32 AC8.
-         */
-        get: operations["getTicketCategories"];
-        put?: never;
-        /** Add a ticket category (Admin only) */
-        post: operations["postTicketCategories"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/ticket-categories/{categoryId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Rename a ticket category (Admin only)
-         * @description Send the version read. Renaming preserves categoryId and ticket references. A stale version returns VERSION_CONFLICT with current. Catalogue management is distinct from correcting one ticket's category (NMS-32 AC8).
-         */
-        patch: operations["patchTicketCategoriesByCategoryId"];
-        trace?: never;
-    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -73,9 +32,66 @@ export interface paths {
         put?: never;
         /**
          * Sign in with phone number and password
-         * @description Sets the session cookie. Five failed attempts in 15 minutes delay access for 15 minutes (ER-03-05). Attempts are counted per submitted phone number whether or not it is registered, and the delay answers 429 RATE_LIMITED, so the response never shows that a number exists.
+         * @description Sets the session cookie. Five failed attempts in 15 minutes delay access for 15 minutes (ER-03-05), even when the password is then correct. Attempts are counted per submitted phone number whether or not it is registered, and the delay answers 429 RATE_LIMITED, so the response never shows that a number exists. Belum Aktif and Nonaktif accounts get no session and the same 401 as a wrong password.
          */
         post: operations["postAuthLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description Ends the session of the cookie, if there is one. Always 204, so the frontend can call it without checking whether the session already expired.
+         */
+        post: operations["postAuthLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user */
+        get: operations["getAuthMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the password of the signed-in account
+         * @description 8 to 128 characters, different from the current password, equal to the confirmation (ER-03-02). A wrong currentPassword is a 400 on that field and counts toward the login lockout. Success ends every session and OTP of the account, including this one, so the person signs in again. A failed validation changes nothing.
+         */
+        post: operations["postAuthPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -92,8 +108,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Request an OTP by WhatsApp for activation or recovery
-         * @description Always answers 202 with the same body, so a phone number cannot be guessed (DEC-05). Limits: 60 seconds between requests and 5 per number per hour.
+         * Request an OTP by WhatsApp for activation, recovery or a number change
+         * @description Answers 202 with the same body whether or not the number is registered and whether or not a code was made (DEC-05). The limits apply to every submitted number: 60 seconds between requests and 5 per number per hour, answered 429 with Retry-After. The code is six digits, valid 5 minutes, sent only to the number on the account. If the WhatsApp message cannot be sent the answer is still 202; the person asks again after the wait or uses the help contact on the landing page.
          */
         post: operations["postAuthOtpRequest"];
         delete?: never;
@@ -112,14 +128,287 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Activate an account with a valid OTP and set the password
-         * @description Recovery uses the same shape. A valid OTP ends all earlier sessions and OTPs. At most 5 wrong attempts per OTP.
+         * Activate or recover an account with a valid OTP and set the password
+         * @description Activation and recovery share this shape. A valid OTP ends all earlier sessions and OTPs. At most 5 wrong attempts per OTP, then the code is void. A password equal to the current one is a 400 on password and leaves the code usable. Wrong, expired, used and void codes all answer the same 401.
          */
         post: operations["postAuthActivate"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/auth/phone-change/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prove a new phone number with its OTP
+         * @description Staff enter the new number on the customer (POST /customers/{customerId}/phone-change). The person who holds the new number requests a code with purpose phoneChange and confirms it here. Only then does the login number change, and every session and OTP issued before it stops working (ER-05-04). Staff never see the code.
+         */
+        post: operations["postAuthPhoneChangeConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List staff accounts (Admin only) */
+        get: operations["getStaffAccounts"];
+        put?: never;
+        /**
+         * Create a staff account (Admin only)
+         * @description The account is Belum Aktif without a password. The person activates it with an OTP sent to the number (DEC-05). The Admin never sees the code or the password. Client accounts are created with the customer.
+         */
+        post: operations["postStaffAccounts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff-accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a staff member's name or role (Admin only)
+         * @description Send the version you read. A role change ends the account's sessions in the same transaction, so the new rights apply on the next request. A Client account answers 409 INVALID_STATE.
+         */
+        patch: operations["patchStaffAccountsByAccountId"];
+        trace?: never;
+    };
+    "/accounts/{accountId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Activate or deactivate an account (Admin only)
+         * @description Applies to staff and Client accounts. Deactivation ends the sessions and OTPs in the same transaction, even when a Teknisi still has active tickets (ER-04-05). The audit trail keeps who, when, why, and the status before and after. Reactivation returns the account to Aktif, or to Belum Aktif if it never set a password. Setting the status it already has answers 409 INVALID_STATE.
+         */
+        put: operations["putAccountsByAccountIdStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ticket-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List ticket categorys
+         * @description Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). Initial entries follow DEC-01 K4; names are editable and the ids are stable. A disaster category does not set Critical automatically. Catalogue management is distinct from correcting one ticket's category (NMS-32 AC8).
+         */
+        get: operations["getTicketCategories"];
+        put?: never;
+        /**
+         * Add a ticket category (Admin or Officer)
+         * @description The name is required and unique in this list without regard to case or repeated spaces. The change is audited.
+         */
+        post: operations["postTicketCategories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ticket-categories/{categoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a ticket category that nothing uses (Admin or Officer)
+         * @description Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).
+         */
+        delete: operations["deleteTicketCategoriesByCategoryId"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, describe, deactivate or reactivate a ticket category (Admin or Officer)
+         * @description Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.
+         */
+        patch: operations["patchTicketCategoriesByCategoryId"];
+        trace?: never;
+    };
+    "/service-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List service packages
+         * @description Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). A package has no price, tariff or billing data (ER-09-08).
+         */
+        get: operations["getServicePackages"];
+        put?: never;
+        /**
+         * Add a service package (Admin or Officer)
+         * @description The name is required and unique in this list without regard to case or repeated spaces. The change is audited.
+         */
+        post: operations["postServicePackages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-packages/{packageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a service package that nothing uses (Admin or Officer)
+         * @description Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).
+         */
+        delete: operations["deleteServicePackagesByPackageId"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, describe, deactivate or reactivate a service package (Admin or Officer)
+         * @description Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.
+         */
+        patch: operations["patchServicePackagesByPackageId"];
+        trace?: never;
+    };
+    "/service-regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List service regions
+         * @description Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02).
+         */
+        get: operations["getServiceRegions"];
+        put?: never;
+        /**
+         * Add a service region (Admin or Officer)
+         * @description The name is required and unique in this list without regard to case or repeated spaces. The change is audited.
+         */
+        post: operations["postServiceRegions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-regions/{regionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a service region that nothing uses (Admin or Officer)
+         * @description Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).
+         */
+        delete: operations["deleteServiceRegionsByRegionId"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, describe, deactivate or reactivate a service region (Admin or Officer)
+         * @description Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.
+         */
+        patch: operations["patchServiceRegionsByRegionId"];
+        trace?: never;
+    };
+    "/voucher-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List voucher types
+         * @description Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). A type has no price or serial number (NMS-42 AC2).
+         */
+        get: operations["getVoucherTypes"];
+        put?: never;
+        /**
+         * Add a voucher type (Admin or Officer)
+         * @description The name is required and unique in this list without regard to case or repeated spaces. The change is audited.
+         */
+        post: operations["postVoucherTypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/voucher-types/{voucherTypeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a voucher type that nothing uses (Admin or Officer)
+         * @description Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).
+         */
+        delete: operations["deleteVoucherTypesByVoucherTypeId"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, describe, deactivate or reactivate a voucher type (Admin or Officer)
+         * @description Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.
+         */
+        patch: operations["patchVoucherTypesByVoucherTypeId"];
         trace?: never;
     };
     "/customers": {
@@ -130,12 +419,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List customers
-         * @description Offset pagination. Admin and Officer only.
+         * List customers (Admin or Officer)
+         * @description Offset pagination, newest first. The search matches id, name and phone.
          */
         get: operations["getCustomers"];
         put?: never;
-        post?: never;
+        /**
+         * Create a customer and the Client account together (Admin or Officer)
+         * @description One transaction: a failure leaves neither the customer nor the account (ER-05-03). The account is Belum Aktif without a password, and no OTP exists yet. The Client asks for it from the activation page (ER-05-01). A customer who already has an account number answers 409 PHONE_TAKEN.
+         */
+        post: operations["postCustomers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -149,7 +442,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get one customer */
+        /**
+         * Get one customer
+         * @description Staff read any customer. A Client reads only their own profile; another customer's id answers 404, as if it did not exist (ER-04-04). The KTP is never part of this response.
+         */
         get: operations["getCustomersByCustomerId"];
         put?: never;
         post?: never;
@@ -157,10 +453,30 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Update a customer
-         * @description Send the version you read. If someone else changed the record first, the answer is 409 with the current record and nothing is overwritten (ER-06-40).
+         * Update a customer's name or address (Admin or Officer)
+         * @description Send the version you read. If someone else changed the record first, the answer is 409 with the current record and nothing is overwritten (ER-06-40). The number changes through the phone-change operation, not here.
          */
         patch: operations["patchCustomersByCustomerId"];
+        trace?: never;
+    };
+    "/customers/{customerId}/phone-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter a new phone number for a customer (Admin or Officer)
+         * @description Check the person's identity first, as company procedure says. If the account is Belum Aktif the number is corrected at once and earlier OTPs are void. If it is Aktif the login number does not change yet: the holder of the new number requests an OTP with purpose phoneChange and confirms it at /auth/phone-change/confirm, and only then do the number and all sessions change (ER-05-04). Staff never see the code. A Nonaktif account answers 409 INVALID_STATE. Services and tickets stay with the customer (ER-05-05).
+         */
+        post: operations["postCustomersByCustomerIdPhoneChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/customers/{customerId}/services": {
@@ -170,8 +486,107 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the services of a customer */
+        /**
+         * List the services of a customer
+         * @description Staff read any customer's services. A Client reads their own, one entry per installation location; another customer's id answers 404.
+         */
         get: operations["getCustomersByCustomerIdServices"];
+        put?: never;
+        /**
+         * Add a service to a customer (Admin or Officer)
+         * @description The number is generated as YYYY-<customerId>-NN (NN 01 to 99, never reused, also after a service is deactivated). When all 99 are used the answer is 409 SERVICE_SEQUENCE_EXHAUSTED and nothing is created. Package and region must be Aktif master entries; an unknown or Nonaktif name is a 400 on that field. Install date cannot be in the future (WIB).
+         */
+        post: operations["postCustomersByCustomerIdServices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceNumber}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one service
+         * @description A number may contain a slash (imported numbers can), so send it URL-encoded. A Client reads only their own services; another's number answers 404.
+         */
+        get: operations["getServicesByServiceNumber"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a service (Admin or Officer)
+         * @description Send the version you read. Setting status to Nonaktif deletes nothing and leaves tickets in place (ER-09-06). A new address applies to new tickets and the map; existing tickets keep their snapshot (ER-09-07). Latitude and longitude go together. A stale version answers 409 VERSION_CONFLICT with current.
+         */
+        patch: operations["patchServicesByServiceNumber"];
+        trace?: never;
+    };
+    "/customers/{customerId}/identity-document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What is stored for a customer (Admin or Officer)
+         * @description Type, size and time only. Use the link operation to open the file.
+         */
+        get: operations["getCustomersByCustomerIdIdentityDocument"];
+        /**
+         * Upload or replace the KTP photo (Admin or Officer)
+         * @description multipart/form-data with one `file`. JPEG or PNG judged by content, not name or Content-Type. At most 5 MiB and 8000 x 8000 pixels. The image is decoded and re-encoded, which removes GPS and other metadata. It is stored encrypted on a private volume. Replacing removes the earlier file. Errors: FILE_TOO_LARGE 413, FILE_TYPE_UNSUPPORTED 415, FILE_CORRUPT 422 (empty or unreadable).
+         */
+        put: operations["putCustomersByCustomerIdIdentityDocument"];
+        post?: never;
+        /**
+         * Delete the KTP photo (Admin or Officer)
+         * @description Removes the record and the encrypted file. The deletion is audited.
+         */
+        delete: operations["deleteCustomersByCustomerIdIdentityDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{customerId}/identity-document/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a 5 minute link to the KTP photo (Admin or Officer)
+         * @description States the purpose, which is kept in the audit trail with the person and the time. The link works only for the person who asked and only while they are signed in.
+         */
+        post: operations["postCustomersByCustomerIdIdentityDocumentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/identity-documents/{documentId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open the KTP photo through a link
+         * @description Needs the session cookie and the unexpired token from the link operation, issued to this same user. Every attempt is audited, refused ones too. The response is never cached, never sniffed, and has no thumbnail.
+         */
+        get: operations["getIdentityDocumentsByDocumentIdFile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -208,85 +623,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        CategoryList: {
-            items: components["schemas"]["Category"][];
-        };
-        Category: {
-            /**
-             * maxLength(64)
-             * @description a string at most 64 character(s) long
-             */
-            categoryId: string;
-            /**
-             * maxLength(100)
-             * @description a string at most 100 character(s) long
-             */
-            name: string;
-            /**
-             * greaterThanOrEqualTo(1)
-             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
-             */
-            version: components["schemas"]["Int"];
-        };
-        ErrorBody: {
-            error: {
-                /** @enum {string} */
-                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
-                message: string;
-                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
-                issues?: {
-                    path: string;
-                }[];
-                retryAfterSeconds?: components["schemas"]["Int"];
-            };
-        };
-        CategoryCreate: {
-            /**
-             * maxLength(100)
-             * @description a string at most 100 character(s) long
-             */
-            name: string;
-        };
-        CategoryConflict: {
-            error: {
-                /** @enum {string} */
-                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
-                message: string;
-                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
-                issues?: {
-                    path: string;
-                }[];
-                retryAfterSeconds?: components["schemas"]["Int"];
-            };
-            current: components["schemas"]["Category"];
-        };
-        CategoryUpdate: {
-            /**
-             * maxLength(100)
-             * @description a string at most 100 character(s) long
-             */
-            name: string;
-            /**
-             * greaterThanOrEqualTo(1)
-             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
-             */
-            version: components["schemas"]["Int"];
-        };
-        /**
-         * int
-         * @description an integer
-         */
-        Int: number;
         AuthUser: {
             id: string;
             name: string;
             role: components["schemas"]["Role"];
+            /** @description The customer record of a Client account, so the frontend can open the Client's own services. Null for staff. */
+            customerId: string | null;
         };
         /** @enum {string} */
         Role: "Admin" | "Officer" | "Teknisi" | "Client";
+        ErrorBody: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+        };
         LoginRequest: {
             /**
-             * @description E.164 phone number with the + prefix, already normalised.
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
              * @example +62811000001
              */
             phone: string;
@@ -296,28 +657,50 @@ export interface components {
              */
             password: string;
         };
+        ChangePasswordRequest: {
+            /**
+             * maxLength(128)
+             * @description a string at most 128 character(s) long
+             */
+            currentPassword: string;
+            /**
+             * maxLength(128)
+             * @description a string at most 128 character(s) long
+             */
+            password: string;
+            /**
+             * maxLength(128)
+             * @description a string at most 128 character(s) long
+             */
+            passwordConfirmation: string;
+        };
         /** @description The same body for registered and unregistered numbers. */
         OtpAccepted: {
-            /** @example Jika nomor terdaftar, kode dikirim lewat WhatsApp. */
+            /** @example Jika nomor terdaftar, kode verifikasi akan dikirim melalui WhatsApp. */
             message: string;
         };
         OtpRequest: {
             /**
-             * @description E.164 phone number with the + prefix, already normalised.
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
              * @example +62811000001
              */
             phone: string;
-            /** @enum {string} */
-            purpose: "activation" | "recovery";
+            /**
+             * @description activation for an account that is Belum Aktif, recovery for one that is Aktif, phoneChange to prove a new number staff entered for an Aktif account. A purpose that does not fit the account gets the same answer and no code.
+             * @enum {string}
+             */
+            purpose: "activation" | "recovery" | "phoneChange";
         };
         ActivateRequest: {
             /**
-             * @description E.164 phone number with the + prefix, already normalised.
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
              * @example +62811000001
              */
             phone: string;
             /**
-             * @description a string matching the pattern ^\d{6}$
+             * @description The six digit code sent by WhatsApp.
              * @example 000000
              */
             otp: string;
@@ -332,37 +715,29 @@ export interface components {
              */
             passwordConfirmation: string;
         };
-        CustomerPage: {
-            items: components["schemas"]["Customer"][];
-            page: components["schemas"]["Int"];
-            pageSize: components["schemas"]["Int"];
-            total: components["schemas"]["Int"];
-        };
-        Customer: {
+        PhoneChangeConfirm: {
             /**
-             * @description Digits only, kept as text so leading zeros stay.
-             * @example 1042
-             */
-            customerId: string;
-            /**
-             * maxLength(150)
-             * @description a string at most 150 character(s) long
-             */
-            customerName: string;
-            /**
-             * @description E.164 phone number with the + prefix, already normalised.
+             * maxLength(32)
+             * @description The new number the code was sent to.
              * @example +62811000001
              */
             phone: string;
-            /** Format: date */
-            registrationDate: string;
             /**
-             * maxLength(500)
-             * @description a string at most 500 character(s) long
+             * @description The six digit code sent by WhatsApp.
+             * @example 000000
              */
-            customerAddress: string;
-            /** @enum {string} */
-            accountStatus: "Belum Aktif" | "Aktif" | "Nonaktif";
+            otp: string;
+        };
+        Account: {
+            accountId: components["schemas"]["UUID"];
+            name: string;
+            /**
+             * @description E.164 phone number with the + prefix.
+             * @example +62811000001
+             */
+            phone: string;
+            role: components["schemas"]["Role"];
+            status: components["schemas"]["AccountStatus"];
             /**
              * greaterThanOrEqualTo(1)
              * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
@@ -373,10 +748,288 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @enum {string} */
+        AccountStatus: "Belum Aktif" | "Aktif" | "Nonaktif";
+        StaffCreate: {
+            /** @description a string that will be trimmed */
+            name: string;
+            /**
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
+             * @example +62811000001
+             */
+            phone: string;
+            role: components["schemas"]["StaffRole"];
+        };
+        /** @enum {string} */
+        StaffRole: "Admin" | "Officer" | "Teknisi";
+        AccountPage: {
+            items: components["schemas"]["Account"][];
+            page: components["schemas"]["Int"];
+            pageSize: components["schemas"]["Int"];
+            total: components["schemas"]["Int"];
+        };
+        AccountConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["Account"];
+        };
+        /**
+         * Format: uuid
+         * @description a Universally Unique Identifier
+         */
+        UUID: string;
+        StaffUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            /** @description a string that will be trimmed */
+            name?: string;
+            role?: components["schemas"]["StaffRole"];
+        };
+        /**
+         * int
+         * @description an integer
+         */
+        Int: number;
+        AccountStatusChange: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            /** @enum {string} */
+            status: "Aktif" | "Nonaktif";
+            /** @description a string that will be trimmed */
+            reason: string;
+        };
+        CategoryList: {
+            items: components["schemas"]["Category"][];
+        };
+        Category: {
+            categoryId: components["schemas"]["UUID"];
+            name: string;
+            description: string | null;
+            status: components["schemas"]["MasterStatus"];
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+        };
+        /** @enum {string} */
+        MasterStatus: "Aktif" | "Nonaktif";
+        CategoryCreate: {
+            name: string;
+            description?: string | null;
+        };
+        CategoryConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["Category"];
+        };
+        CategoryUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            name?: string;
+            description?: string | null;
+            status?: components["schemas"]["MasterStatus"];
+        };
+        ServicePackageList: {
+            items: components["schemas"]["ServicePackage"][];
+        };
+        ServicePackage: {
+            packageId: components["schemas"]["UUID"];
+            name: string;
+            description: string | null;
+            status: components["schemas"]["MasterStatus"];
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+        };
+        ServicePackageCreate: {
+            name: string;
+            description?: string | null;
+        };
+        ServicePackageConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["ServicePackage"];
+        };
+        ServicePackageUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            name?: string;
+            description?: string | null;
+            status?: components["schemas"]["MasterStatus"];
+        };
+        ServiceRegionList: {
+            items: components["schemas"]["ServiceRegion"][];
+        };
+        ServiceRegion: {
+            regionId: components["schemas"]["UUID"];
+            name: string;
+            description: string | null;
+            status: components["schemas"]["MasterStatus"];
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+        };
+        ServiceRegionCreate: {
+            name: string;
+            description?: string | null;
+        };
+        ServiceRegionConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["ServiceRegion"];
+        };
+        ServiceRegionUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            name?: string;
+            description?: string | null;
+            status?: components["schemas"]["MasterStatus"];
+        };
+        VoucherTypeList: {
+            items: components["schemas"]["VoucherType"][];
+        };
+        VoucherType: {
+            voucherTypeId: components["schemas"]["UUID"];
+            name: string;
+            description: string | null;
+            status: components["schemas"]["MasterStatus"];
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+        };
+        VoucherTypeCreate: {
+            name: string;
+            description?: string | null;
+        };
+        VoucherTypeConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["VoucherType"];
+        };
+        VoucherTypeUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            name?: string;
+            description?: string | null;
+            status?: components["schemas"]["MasterStatus"];
+        };
+        Customer: {
+            /**
+             * @description Digits only, kept as text so leading zeros stay.
+             * @example 1042
+             */
+            customerId: string;
+            customerName: string;
+            /**
+             * @description E.164 phone number with the + prefix.
+             * @example +62811000001
+             */
+            phone: string;
+            /** Format: date */
+            registrationDate: string;
+            customerAddress: string;
+            accountStatus: components["schemas"]["AccountStatus"];
+            /** @description True while at least one of the customer's services is Aktif. A customer with only Nonaktif services is not counted as active (ER-09-06). */
+            hasActiveService: boolean;
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description The customer id is assigned by the system. The account is created Belum Aktif without a password in the same transaction (ER-05-03). */
+        CustomerCreate: {
+            customerName: string;
+            /**
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
+             * @example +62811000001
+             */
+            phone: string;
+            /** Format: date */
+            registrationDate: string;
+            customerAddress: string;
+        };
+        CustomerPage: {
+            items: components["schemas"]["Customer"][];
+            page: components["schemas"]["Int"];
+            pageSize: components["schemas"]["Int"];
+            total: components["schemas"]["Int"];
+        };
         CustomerConflict: {
             error: {
                 /** @enum {string} */
-                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
                 message: string;
                 /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
                 issues?: {
@@ -392,16 +1045,24 @@ export interface components {
              * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
              */
             version: components["schemas"]["Int"];
-            /**
-             * maxLength(150)
-             * @description a string at most 150 character(s) long
-             */
             customerName?: string;
-            /**
-             * maxLength(500)
-             * @description a string at most 500 character(s) long
-             */
             customerAddress?: string;
+        };
+        CustomerPhoneChangeResult: {
+            customer: components["schemas"]["Customer"];
+            /**
+             * @description notRequired: the account was Belum Aktif, the number is corrected and the person verifies it at activation. pending: the account is Aktif, so the login number changes only after the holder of the new number confirms an OTP (ER-05-04).
+             * @enum {string}
+             */
+            verification: "notRequired" | "pending";
+        };
+        CustomerPhoneChange: {
+            /**
+             * maxLength(32)
+             * @description Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.
+             * @example +62811000001
+             */
+            phone: string;
         };
         ServicePage: {
             items: components["schemas"]["Service"][];
@@ -420,20 +1081,8 @@ export interface components {
              * @example 1042
              */
             customerId: string;
-            /**
-             * maxLength(100)
-             * @description a string at most 100 character(s) long
-             */
             package: string;
-            /**
-             * maxLength(100)
-             * @description a string at most 100 character(s) long
-             */
             region: string;
-            /**
-             * maxLength(500)
-             * @description a string at most 500 character(s) long
-             */
             serviceAddress: string;
             latitude: number | null;
             longitude: number | null;
@@ -447,6 +1096,78 @@ export interface components {
              * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
              */
             version: components["schemas"]["Int"];
+        };
+        /** @description The service number is generated as YYYY-<customerId>-NN and never reused (ER-09-03). Latitude and longitude go together or are both null. */
+        ServiceCreate: {
+            /** @description The name of an Aktif package in the master data (ER-09-08). */
+            package: string;
+            /** @description The name of an Aktif region in the master data (ER-09-08). */
+            region: string;
+            serviceAddress: string;
+            latitude?: number | null;
+            longitude?: number | null;
+            /** Format: date */
+            installDate: string;
+            notes?: string | null;
+        };
+        ServiceConflict: {
+            error: {
+                /** @enum {string} */
+                code: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "FORBIDDEN_ORIGIN" | "NOT_FOUND" | "VERSION_CONFLICT" | "REQUEST_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "INVALID_CREDENTIALS" | "OTP_INVALID" | "RATE_LIMITED" | "PHONE_TAKEN" | "NAME_TAKEN" | "INVALID_STATE" | "IN_USE" | "SERVICE_SEQUENCE_EXHAUSTED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "FILE_CORRUPT" | "NOT_IMPLEMENTED" | "INTERNAL_ERROR";
+                message: string;
+                /** @description Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan. */
+                issues?: {
+                    path: string;
+                }[];
+                retryAfterSeconds?: components["schemas"]["Int"];
+            };
+            current: components["schemas"]["Service"];
+        };
+        ServiceUpdate: {
+            /**
+             * greaterThanOrEqualTo(1)
+             * @description Version of the record. A stale version gets 409 VERSION_CONFLICT.
+             */
+            version: components["schemas"]["Int"];
+            package?: string;
+            region?: string;
+            serviceAddress?: string;
+            latitude?: number | null;
+            longitude?: number | null;
+            /** Format: date */
+            installDate?: string;
+            /** @enum {string} */
+            status?: "Aktif" | "Nonaktif";
+            notes?: string | null;
+        };
+        /** @description What is known about the stored file. The file itself is read through a short-lived link. */
+        IdentityDocument: {
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png";
+            sizeBytes: components["schemas"]["Int"];
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        IdentityDocumentUpload: {
+            /**
+             * File
+             * Format: binary
+             * @description JPEG or PNG, at most 5 MiB and 8000 x 8000 pixels. Metadata such as GPS is removed.
+             */
+            file: string;
+        };
+        IdentityDocumentLink: {
+            /** @description Path on this API, valid for 5 minutes and only for the Admin or Officer who asked. Open it with the session cookie. */
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        IdentityDocumentLinkRequest: {
+            /**
+             * @description Why the document is opened. Kept in the audit trail with the person and the time (ER-MUT-11).
+             * @example Verifikasi identitas sebelum penggantian nomor
+             */
+            purpose: string;
         };
         Ticket: {
             /** @description Ticket number. Its format is set by the ticket stories (NMS-28). */
@@ -470,7 +1191,7 @@ export interface components {
             route: "form" | "ai";
             complaint: string;
             description: string;
-            categoryId: string | null;
+            categoryId: components["schemas"]["UUID"] | null;
             photoCount: components["schemas"]["Int"];
             /**
              * greaterThanOrEqualTo(1)
@@ -505,11 +1226,7 @@ export interface components {
              * @description a string at most 4000 character(s) long
              */
             description: string;
-            /**
-             * maxLength(64)
-             * @description a string at most 64 character(s) long
-             */
-            categoryId?: string;
+            categoryId?: components["schemas"]["UUID"];
             photos?: string[];
         };
         TicketPage: {
@@ -575,185 +1292,6 @@ export interface operations {
             };
         };
     };
-    getTicketCategories: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The category catalogue */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CategoryList"];
-                };
-            };
-            /** @description No valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    postTicketCategories: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CategoryCreate"];
-            };
-        };
-        responses: {
-            /** @description The created category */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Category"];
-                };
-            };
-            /** @description The request failed validation. Only field paths are returned. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description No valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description The role may not do this. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    patchTicketCategoriesByCategoryId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description a string at most 64 character(s) long */
-                categoryId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CategoryUpdate"];
-            };
-        };
-        responses: {
-            /** @description The updated category */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Category"];
-                };
-            };
-            /** @description The request failed validation. Only field paths are returned. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description No valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description The role may not do this. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description The record does not exist or is not visible to the caller. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Stale version; current holds the latest category. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CategoryConflict"];
-                };
-            };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
     postAuthLogin: {
         parameters: {
             query?: never;
@@ -805,8 +1343,97 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+        };
+    };
+    postAuthLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAuthMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["AuthUser"];
+                    };
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postAuthPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed. All sessions ended; sign in again. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many requests. Retry-After says when to try again. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -856,15 +1483,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
         };
     };
     postAuthActivate: {
@@ -905,8 +1523,30 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Too many requests. Retry-After says when to try again. */
-            429: {
+        };
+    };
+    postAuthPhoneChangeConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneChangeConfirm"];
+            };
+        };
+        responses: {
+            /** @description The number changed. Sign in with the new number. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -914,13 +1554,1260 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+            /** @description The OTP is wrong, expired, or already used. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getStaffAccounts: {
+        parameters: {
+            query?: {
+                /** @description a number greater than or equal to 1 */
+                page?: string;
+                /** @description a number between 1 and 100 */
+                pageSize?: string;
+                role?: components["schemas"]["StaffRole"];
+                /** @description a string at most 150 character(s) long */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of staff accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPage"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postStaffAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffCreate"];
+            };
+        };
+        responses: {
+            /** @description The created account */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The number belongs to another account (PHONE_TAKEN). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchStaffAccountsByAccountId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                accountId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version; current holds the latest account. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountConflict"];
+                };
+            };
+        };
+    };
+    putAccountsByAccountIdStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                accountId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The updated account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version, or the status is already set. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountConflict"];
+                };
+            };
+        };
+    };
+    getTicketCategories: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MasterStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ticket categorys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryList"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postTicketCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description The created ticket category */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name is already used in this list (NAME_TAKEN). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteTicketCategoriesByCategoryId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                categoryId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Something still refers to it (IN_USE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchTicketCategoriesByCategoryId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                categoryId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated ticket category */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version (current holds the latest) or NAME_TAKEN. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryConflict"];
+                };
+            };
+        };
+    };
+    getServicePackages: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MasterStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service packages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageList"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postServicePackages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePackageCreate"];
+            };
+        };
+        responses: {
+            /** @description The created service package */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackage"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name is already used in this list (NAME_TAKEN). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteServicePackagesByPackageId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                packageId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Something still refers to it (IN_USE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchServicePackagesByPackageId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                packageId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePackageUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated service package */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackage"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version (current holds the latest) or NAME_TAKEN. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageConflict"];
+                };
+            };
+        };
+    };
+    getServiceRegions: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MasterStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service regions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceRegionList"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postServiceRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceRegionCreate"];
+            };
+        };
+        responses: {
+            /** @description The created service region */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceRegion"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name is already used in this list (NAME_TAKEN). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteServiceRegionsByRegionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                regionId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Something still refers to it (IN_USE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchServiceRegionsByRegionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                regionId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceRegionUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated service region */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceRegion"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version (current holds the latest) or NAME_TAKEN. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceRegionConflict"];
+                };
+            };
+        };
+    };
+    getVoucherTypes: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MasterStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The voucher types */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTypeList"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postVoucherTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description The created voucher type */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherType"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name is already used in this list (NAME_TAKEN). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteVoucherTypesByVoucherTypeId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                voucherTypeId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Something still refers to it (IN_USE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchVoucherTypesByVoucherTypeId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                voucherTypeId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated voucher type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherType"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Stale version (current holds the latest) or NAME_TAKEN. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTypeConflict"];
                 };
             };
         };
@@ -977,8 +2864,59 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+        };
+    };
+    postCustomers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreate"];
+            };
+        };
+        responses: {
+            /** @description The created customer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The number belongs to another account (PHONE_TAKEN). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1027,8 +2965,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description The record does not exist or is not visible to the caller. */
-            404: {
+            /** @description The role may not do this. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1036,8 +2974,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1117,8 +3055,71 @@ export interface operations {
                     "application/json": components["schemas"]["CustomerConflict"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+        };
+    };
+    postCustomersByCustomerIdPhoneChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerPhoneChange"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerPhoneChangeResult"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description PHONE_TAKEN, or the account is Nonaktif (INVALID_STATE). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1172,6 +3173,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
             /** @description The record does not exist or is not visible to the caller. */
             404: {
                 headers: {
@@ -1181,8 +3191,535 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Draft contract. The endpoint is not implemented yet. */
-            501: {
+        };
+    };
+    postCustomersByCustomerIdServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceCreate"];
+            };
+        };
+        responses: {
+            /** @description The created service */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description SERVICE_SEQUENCE_EXHAUSTED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getServicesByServiceNumber: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$ */
+                serviceNumber: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    patchServicesByServiceNumber: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$ */
+                serviceNumber: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The version is stale. The body carries the current record. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceConflict"];
+                };
+            };
+        };
+    };
+    getCustomersByCustomerIdIdentityDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored file's details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityDocument"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such customer, or no file stored. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    putCustomersByCustomerIdIdentityDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["IdentityDocumentUpload"];
+                "multipart/form-data": components["schemas"]["IdentityDocumentUpload"];
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityDocument"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The file is too large (FILE_TOO_LARGE). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not a JPEG or PNG (FILE_TYPE_UNSUPPORTED). */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Empty or not a readable image (FILE_CORRUPT). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    deleteCustomersByCustomerIdIdentityDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such customer, or no file stored. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    postCustomersByCustomerIdIdentityDocumentLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Digits only, kept as text so leading zeros stay. */
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityDocumentLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description The link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityDocumentLink"];
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such customer, or no file stored. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getIdentityDocumentsByDocumentIdFile: {
+        parameters: {
+            query: {
+                /** @description a string at most 1024 character(s) long */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description a Universally Unique Identifier */
+                documentId: components["schemas"]["UUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                };
+            };
+            /** @description The request failed validation. Only field paths are returned. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No valid session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The role may not do this. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The record does not exist or is not visible to the caller. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,7 +3,7 @@
   "info": {
     "title": "Nirwana Management System API",
     "description": "Contract between the NMS frontend and backend. Operations marked x-nms-draft answer 501 until their story is built.",
-    "version": "0.1.1"
+    "version": "0.2.0"
   },
   "components": {
     "securitySchemes": {
@@ -14,51 +14,46 @@
       }
     },
     "schemas": {
-      "CategoryList": {
+      "AuthUser": {
         "type": "object",
         "required": [
-          "items"
+          "id",
+          "name",
+          "role",
+          "customerId"
         ],
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Category"
-            }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "customerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The customer record of a Client account, so the frontend can open the Client's own services. Null for staff."
           }
         },
         "additionalProperties": false
       },
-      "Category": {
-        "type": "object",
-        "required": [
-          "categoryId",
-          "name",
-          "version"
-        ],
-        "properties": {
-          "categoryId": {
-            "type": "string",
-            "description": "a string at most 64 character(s) long",
-            "title": "maxLength(64)",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "name": {
-            "type": "string",
-            "description": "a string at most 100 character(s) long",
-            "title": "maxLength(100)",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "version": {
-            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
-            "title": "greaterThanOrEqualTo(1)",
-            "minimum": 1,
-            "$ref": "#/components/schemas/Int"
-          }
-        },
-        "additionalProperties": false
+      "Role": {
+        "type": "string",
+        "enum": [
+          "Admin",
+          "Officer",
+          "Teknisi",
+          "Client"
+        ]
       },
       "ErrorBody": {
         "type": "object",
@@ -87,6 +82,14 @@
                   "INVALID_CREDENTIALS",
                   "OTP_INVALID",
                   "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
                   "NOT_IMPLEMENTED",
                   "INTERNAL_ERROR"
                 ]
@@ -119,6 +122,495 @@
         },
         "additionalProperties": false
       },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "password"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": [
+          "currentPassword",
+          "password",
+          "passwordConfirmation"
+        ],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "password": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false
+      },
+      "OtpAccepted": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "examples": [
+              "Jika nomor terdaftar, kode verifikasi akan dikirim melalui WhatsApp."
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "The same body for registered and unregistered numbers."
+      },
+      "OtpRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "purpose"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "activation",
+              "recovery",
+              "phoneChange"
+            ],
+            "description": "activation for an account that is Belum Aktif, recovery for one that is Aktif, phoneChange to prove a new number staff entered for an Aktif account. A purpose that does not fit the account gets the same answer and no code."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ActivateRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "otp",
+          "password",
+          "passwordConfirmation"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
+          },
+          "otp": {
+            "type": "string",
+            "description": "The six digit code sent by WhatsApp.",
+            "examples": [
+              "000000"
+            ],
+            "pattern": "^\\d{6}$"
+          },
+          "password": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "description": "a string at most 128 character(s) long",
+            "title": "maxLength(128)",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": false
+      },
+      "PhoneChangeConfirm": {
+        "type": "object",
+        "required": [
+          "phone",
+          "otp"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "The new number the code was sent to.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
+          },
+          "otp": {
+            "type": "string",
+            "description": "The six digit code sent by WhatsApp.",
+            "examples": [
+              "000000"
+            ],
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Account": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "name",
+          "phone",
+          "role",
+          "status",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "accountId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "E.164 phone number with the + prefix.",
+            "examples": [
+              "+62811000001"
+            ],
+            "pattern": "^\\+[1-9][0-9]{7,14}$"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccountStatus": {
+        "type": "string",
+        "enum": [
+          "Belum Aktif",
+          "Aktif",
+          "Nonaktif"
+        ]
+      },
+      "StaffCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "phone",
+          "role"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "a string that will be trimmed"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/StaffRole"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StaffRole": {
+        "type": "string",
+        "enum": [
+          "Admin",
+          "Officer",
+          "Teknisi"
+        ]
+      },
+      "AccountPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "pageSize": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AccountConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UUID": {
+        "type": "string",
+        "description": "a Universally Unique Identifier",
+        "format": "uuid",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "StaffUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "name": {
+            "type": "string",
+            "description": "a string that will be trimmed"
+          },
+          "role": {
+            "$ref": "#/components/schemas/StaffRole"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Int": {
+        "type": "integer",
+        "description": "an integer",
+        "title": "int"
+      },
+      "AccountStatusChange": {
+        "type": "object",
+        "required": [
+          "version",
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Aktif",
+              "Nonaktif"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "a string that will be trimmed"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Category": {
+        "type": "object",
+        "required": [
+          "categoryId",
+          "name",
+          "description",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "categoryId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MasterStatus": {
+        "type": "string",
+        "enum": [
+          "Aktif",
+          "Nonaktif"
+        ]
+      },
       "CategoryCreate": {
         "type": "object",
         "required": [
@@ -126,11 +618,17 @@
         ],
         "properties": {
           "name": {
-            "type": "string",
-            "description": "a string at most 100 character(s) long",
-            "title": "maxLength(100)",
-            "minLength": 1,
-            "maxLength": 100
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -163,6 +661,14 @@
                   "INVALID_CREDENTIALS",
                   "OTP_INVALID",
                   "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
                   "NOT_IMPLEMENTED",
                   "INTERNAL_ERROR"
                 ]
@@ -201,16 +707,77 @@
       "CategoryUpdate": {
         "type": "object",
         "required": [
-          "name",
           "version"
         ],
         "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
           "name": {
-            "type": "string",
-            "description": "a string at most 100 character(s) long",
-            "title": "maxLength(100)",
-            "minLength": 1,
-            "maxLength": 100
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServicePackageList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServicePackage"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServicePackage": {
+        "type": "object",
+        "required": [
+          "packageId",
+          "name",
+          "description",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "packageId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
           },
           "version": {
             "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
@@ -221,147 +788,581 @@
         },
         "additionalProperties": false
       },
-      "Int": {
-        "type": "integer",
-        "description": "an integer",
-        "title": "int"
-      },
-      "AuthUser": {
+      "ServicePackageCreate": {
         "type": "object",
         "required": [
-          "id",
-          "name",
-          "role"
+          "name"
         ],
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServicePackageConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/ServicePackage"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServicePackageUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
           },
           "name": {
             "type": "string"
           },
-          "role": {
-            "$ref": "#/components/schemas/Role"
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
           }
         },
         "additionalProperties": false
       },
-      "Role": {
-        "type": "string",
-        "enum": [
-          "Admin",
-          "Officer",
-          "Teknisi",
-          "Client"
-        ]
-      },
-      "LoginRequest": {
+      "ServiceRegionList": {
         "type": "object",
         "required": [
-          "phone",
-          "password"
+          "items"
         ],
         "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceRegion"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceRegion": {
+        "type": "object",
+        "required": [
+          "regionId",
+          "name",
+          "description",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "regionId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceRegionCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceRegionConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/ServiceRegion"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceRegionUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherTypeList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoucherType"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherType": {
+        "type": "object",
+        "required": [
+          "voucherTypeId",
+          "name",
+          "description",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "voucherTypeId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherTypeCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherTypeConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/VoucherType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherTypeUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/MasterStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "customerId",
+          "customerName",
+          "phone",
+          "registrationDate",
+          "customerAddress",
+          "accountStatus",
+          "hasActiveService",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "Digits only, kept as text so leading zeros stay.",
+            "examples": [
+              "1042"
+            ],
+            "pattern": "^\\d{1,20}$"
+          },
+          "customerName": {
+            "type": "string"
+          },
           "phone": {
             "type": "string",
-            "description": "E.164 phone number with the + prefix, already normalised.",
+            "description": "E.164 phone number with the + prefix.",
             "examples": [
               "+62811000001"
             ],
             "pattern": "^\\+[1-9][0-9]{7,14}$"
           },
-          "password": {
+          "registrationDate": {
             "type": "string",
-            "description": "a string at most 128 character(s) long",
-            "title": "maxLength(128)",
-            "minLength": 8,
-            "maxLength": 128
+            "format": "date"
+          },
+          "customerAddress": {
+            "type": "string"
+          },
+          "accountStatus": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "hasActiveService": {
+            "type": "boolean",
+            "description": "True while at least one of the customer's services is Aktif. A customer with only Nonaktif services is not counted as active (ER-09-06)."
+          },
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
       },
-      "OtpAccepted": {
+      "CustomerCreate": {
         "type": "object",
         "required": [
-          "message"
+          "customerName",
+          "phone",
+          "registrationDate",
+          "customerAddress"
         ],
         "properties": {
-          "message": {
+          "customerName": {
+            "type": "string"
+          },
+          "phone": {
             "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
+            "minLength": 1,
+            "maxLength": 32,
             "examples": [
-              "Jika nomor terdaftar, kode dikirim lewat WhatsApp."
+              "+62811000001"
             ]
+          },
+          "registrationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "customerAddress": {
+            "type": "string"
           }
         },
         "additionalProperties": false,
-        "description": "The same body for registered and unregistered numbers."
-      },
-      "OtpRequest": {
-        "type": "object",
-        "required": [
-          "phone",
-          "purpose"
-        ],
-        "properties": {
-          "phone": {
-            "type": "string",
-            "description": "E.164 phone number with the + prefix, already normalised.",
-            "examples": [
-              "+62811000001"
-            ],
-            "pattern": "^\\+[1-9][0-9]{7,14}$"
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "activation",
-              "recovery"
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
-      "ActivateRequest": {
-        "type": "object",
-        "required": [
-          "phone",
-          "otp",
-          "password",
-          "passwordConfirmation"
-        ],
-        "properties": {
-          "phone": {
-            "type": "string",
-            "description": "E.164 phone number with the + prefix, already normalised.",
-            "examples": [
-              "+62811000001"
-            ],
-            "pattern": "^\\+[1-9][0-9]{7,14}$"
-          },
-          "otp": {
-            "type": "string",
-            "description": "a string matching the pattern ^\\d{6}$",
-            "examples": [
-              "000000"
-            ],
-            "pattern": "^\\d{6}$"
-          },
-          "password": {
-            "type": "string",
-            "description": "a string at most 128 character(s) long",
-            "title": "maxLength(128)",
-            "minLength": 8,
-            "maxLength": 128
-          },
-          "passwordConfirmation": {
-            "type": "string",
-            "description": "a string at most 128 character(s) long",
-            "title": "maxLength(128)",
-            "minLength": 8,
-            "maxLength": 128
-          }
-        },
-        "additionalProperties": false
+        "description": "The customer id is assigned by the system. The account is created Belum Aktif without a password in the same transaction (ER-05-03)."
       },
       "CustomerPage": {
         "type": "object",
@@ -386,79 +1387,6 @@
           },
           "total": {
             "$ref": "#/components/schemas/Int"
-          }
-        },
-        "additionalProperties": false
-      },
-      "Customer": {
-        "type": "object",
-        "required": [
-          "customerId",
-          "customerName",
-          "phone",
-          "registrationDate",
-          "customerAddress",
-          "accountStatus",
-          "version",
-          "createdAt",
-          "updatedAt"
-        ],
-        "properties": {
-          "customerId": {
-            "type": "string",
-            "description": "Digits only, kept as text so leading zeros stay.",
-            "examples": [
-              "1042"
-            ],
-            "pattern": "^\\d{1,20}$"
-          },
-          "customerName": {
-            "type": "string",
-            "description": "a string at most 150 character(s) long",
-            "title": "maxLength(150)",
-            "minLength": 1,
-            "maxLength": 150
-          },
-          "phone": {
-            "type": "string",
-            "description": "E.164 phone number with the + prefix, already normalised.",
-            "examples": [
-              "+62811000001"
-            ],
-            "pattern": "^\\+[1-9][0-9]{7,14}$"
-          },
-          "registrationDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "customerAddress": {
-            "type": "string",
-            "description": "a string at most 500 character(s) long",
-            "title": "maxLength(500)",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "accountStatus": {
-            "type": "string",
-            "enum": [
-              "Belum Aktif",
-              "Aktif",
-              "Nonaktif"
-            ]
-          },
-          "version": {
-            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
-            "title": "greaterThanOrEqualTo(1)",
-            "minimum": 1,
-            "$ref": "#/components/schemas/Int"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -491,6 +1419,14 @@
                   "INVALID_CREDENTIALS",
                   "OTP_INVALID",
                   "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
                   "NOT_IMPLEMENTED",
                   "INTERNAL_ERROR"
                 ]
@@ -539,18 +1475,50 @@
             "$ref": "#/components/schemas/Int"
           },
           "customerName": {
-            "type": "string",
-            "description": "a string at most 150 character(s) long",
-            "title": "maxLength(150)",
-            "minLength": 1,
-            "maxLength": 150
+            "type": "string"
           },
           "customerAddress": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerPhoneChangeResult": {
+        "type": "object",
+        "required": [
+          "customer",
+          "verification"
+        ],
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "verification": {
             "type": "string",
-            "description": "a string at most 500 character(s) long",
-            "title": "maxLength(500)",
+            "enum": [
+              "notRequired",
+              "pending"
+            ],
+            "description": "notRequired: the account was Belum Aktif, the number is corrected and the person verifies it at activation. pending: the account is Aktif, so the login number changes only after the holder of the new number confirms an OTP (ER-05-04)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerPhoneChange": {
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number as typed. The server normalises it to E.164 (DEC-04): 0811000001, 62811000001 and +62 811-000001 are the same number.",
+            "title": "maxLength(32)",
             "minLength": 1,
-            "maxLength": 500
+            "maxLength": 32,
+            "examples": [
+              "+62811000001"
+            ]
           }
         },
         "additionalProperties": false
@@ -615,25 +1583,13 @@
             "pattern": "^\\d{1,20}$"
           },
           "package": {
-            "type": "string",
-            "description": "a string at most 100 character(s) long",
-            "title": "maxLength(100)",
-            "minLength": 1,
-            "maxLength": 100
+            "type": "string"
           },
           "region": {
-            "type": "string",
-            "description": "a string at most 100 character(s) long",
-            "title": "maxLength(100)",
-            "minLength": 1,
-            "maxLength": 100
+            "type": "string"
           },
           "serviceAddress": {
-            "type": "string",
-            "description": "a string at most 500 character(s) long",
-            "title": "maxLength(500)",
-            "minLength": 1,
-            "maxLength": 500
+            "type": "string"
           },
           "latitude": {
             "anyOf": [
@@ -677,10 +1633,7 @@
           "notes": {
             "anyOf": [
               {
-                "type": "string",
-                "description": "a string at most 1000 character(s) long",
-                "title": "maxLength(1000)",
-                "maxLength": 1000
+                "type": "string"
               },
               {
                 "type": "null"
@@ -692,6 +1645,291 @@
             "title": "greaterThanOrEqualTo(1)",
             "minimum": 1,
             "$ref": "#/components/schemas/Int"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceCreate": {
+        "type": "object",
+        "required": [
+          "package",
+          "region",
+          "serviceAddress",
+          "installDate"
+        ],
+        "properties": {
+          "package": {
+            "type": "string",
+            "description": "The name of an Aktif package in the master data (ER-09-08)."
+          },
+          "region": {
+            "type": "string",
+            "description": "The name of an Aktif region in the master data (ER-09-08)."
+          },
+          "serviceAddress": {
+            "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -90 and 90",
+                "title": "between(-90, 90)",
+                "minimum": -90,
+                "maximum": 90
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -180 and 180",
+                "title": "between(-180, 180)",
+                "minimum": -180,
+                "maximum": 180
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "The service number is generated as YYYY-<customerId>-NN and never reused (ER-09-03). Latitude and longitude go together or are both null."
+      },
+      "ServiceConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHENTICATED",
+                  "FORBIDDEN",
+                  "FORBIDDEN_ORIGIN",
+                  "NOT_FOUND",
+                  "VERSION_CONFLICT",
+                  "REQUEST_IN_PROGRESS",
+                  "IDEMPOTENCY_KEY_REUSED",
+                  "INVALID_CREDENTIALS",
+                  "OTP_INVALID",
+                  "RATE_LIMITED",
+                  "PHONE_TAKEN",
+                  "NAME_TAKEN",
+                  "INVALID_STATE",
+                  "IN_USE",
+                  "SERVICE_SEQUENCE_EXHAUSTED",
+                  "FILE_TOO_LARGE",
+                  "FILE_TYPE_UNSUPPORTED",
+                  "FILE_CORRUPT",
+                  "NOT_IMPLEMENTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "Field yang gagal validasi: path bertitik, indeks array mulai 0 (contoh contacts.0.phone). Path kosong berarti galat tingkat form. Nilai yang dikirim tidak pernah dikembalikan."
+              },
+              "retryAfterSeconds": {
+                "$ref": "#/components/schemas/Int"
+              }
+            },
+            "additionalProperties": false
+          },
+          "current": {
+            "$ref": "#/components/schemas/Service"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceUpdate": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "description": "Version of the record. A stale version gets 409 VERSION_CONFLICT.",
+            "title": "greaterThanOrEqualTo(1)",
+            "minimum": 1,
+            "$ref": "#/components/schemas/Int"
+          },
+          "package": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "serviceAddress": {
+            "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -90 and 90",
+                "title": "between(-90, 90)",
+                "minimum": -90,
+                "maximum": 90
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "a number between -180 and 180",
+                "title": "between(-180, 180)",
+                "minimum": -180,
+                "maximum": 180
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Aktif",
+              "Nonaktif"
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentityDocument": {
+        "type": "object",
+        "required": [
+          "contentType",
+          "sizeBytes",
+          "uploadedAt"
+        ],
+        "properties": {
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png"
+            ]
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/Int"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "What is known about the stored file. The file itself is read through a short-lived link."
+      },
+      "IdentityDocumentUpload": {
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "JPEG or PNG, at most 5 MiB and 8000 x 8000 pixels. Metadata such as GPS is removed.",
+            "title": "File"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentityDocumentLink": {
+        "type": "object",
+        "required": [
+          "url",
+          "expiresAt"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Path on this API, valid for 5 minutes and only for the Admin or Officer who asked. Open it with the session cookie."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentityDocumentLinkRequest": {
+        "type": "object",
+        "required": [
+          "purpose"
+        ],
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Why the document is opened. Kept in the audit trail with the person and the time (ER-MUT-11).",
+            "examples": [
+              "Verifikasi identitas sebelum penggantian nomor"
+            ]
           }
         },
         "additionalProperties": false
@@ -763,11 +2001,7 @@
           "categoryId": {
             "anyOf": [
               {
-                "type": "string",
-                "description": "a string at most 64 character(s) long",
-                "title": "maxLength(64)",
-                "minLength": 1,
-                "maxLength": 64
+                "$ref": "#/components/schemas/UUID"
               },
               {
                 "type": "null"
@@ -851,11 +2085,7 @@
             "maxLength": 4000
           },
           "categoryId": {
-            "type": "string",
-            "description": "a string at most 64 character(s) long",
-            "title": "maxLength(64)",
-            "minLength": 1,
-            "maxLength": 64
+            "$ref": "#/components/schemas/UUID"
           },
           "photos": {
             "type": "array",
@@ -1000,235 +2230,14 @@
         }
       }
     },
-    "/ticket-categories": {
-      "get": {
-        "operationId": "getTicketCategories",
-        "x-nms-draft": true,
-        "tags": [
-          "Categories"
-        ],
-        "summary": "Read the ticket category catalogue",
-        "description": "Authenticated roles read the catalogue. Initial entries follow DEC-01 K4; names are editable, IDs are stable. A disaster category does not set Critical automatically. NMS-32 AC8.",
-        "responses": {
-          "200": {
-            "description": "The category catalogue",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "postTicketCategories",
-        "x-nms-draft": true,
-        "tags": [
-          "Categories"
-        ],
-        "summary": "Add a ticket category (Admin only)",
-        "responses": {
-          "201": {
-            "description": "The created category",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Category"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request failed validation. Only field paths are returned.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The role may not do this.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CategoryCreate"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/ticket-categories/{categoryId}": {
-      "patch": {
-        "operationId": "patchTicketCategoriesByCategoryId",
-        "x-nms-draft": true,
-        "tags": [
-          "Categories"
-        ],
-        "summary": "Rename a ticket category (Admin only)",
-        "description": "Send the version read. Renaming preserves categoryId and ticket references. A stale version returns VERSION_CONFLICT with current. Catalogue management is distinct from correcting one ticket's category (NMS-32 AC8).",
-        "responses": {
-          "200": {
-            "description": "The updated category",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Category"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request failed validation. Only field paths are returned.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The role may not do this.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The record does not exist or is not visible to the caller.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Stale version; current holds the latest category.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryConflict"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "categoryId",
-            "schema": {
-              "type": "string",
-              "title": "maxLength(64)",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "required": true,
-            "description": "a string at most 64 character(s) long"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CategoryUpdate"
-              }
-            }
-          }
-        }
-      }
-    },
     "/auth/login": {
       "post": {
         "operationId": "postAuthLogin",
-        "x-nms-draft": true,
         "tags": [
           "Auth"
         ],
         "summary": "Sign in with phone number and password",
-        "description": "Sets the session cookie. Five failed attempts in 15 minutes delay access for 15 minutes (ER-03-05). Attempts are counted per submitted phone number whether or not it is registered, and the delay answers 429 RATE_LIMITED, so the response never shows that a number exists.",
+        "description": "Sets the session cookie. Five failed attempts in 15 minutes delay access for 15 minutes (ER-03-05), even when the password is then correct. Attempts are counted per submitted phone number whether or not it is registered, and the delay answers 429 RATE_LIMITED, so the response never shows that a number exists. Belum Aktif and Nonaktif accounts get no session and the same 401 as a wrong password.",
         "security": [],
         "responses": {
           "200": {
@@ -1279,16 +2288,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
           }
         },
         "requestBody": {
@@ -1303,15 +2302,125 @@
         }
       }
     },
-    "/auth/otp/request": {
+    "/auth/logout": {
       "post": {
-        "operationId": "postAuthOtpRequest",
-        "x-nms-draft": true,
+        "operationId": "postAuthLogout",
         "tags": [
           "Auth"
         ],
-        "summary": "Request an OTP by WhatsApp for activation or recovery",
-        "description": "Always answers 202 with the same body, so a phone number cannot be guessed (DEC-05). Limits: 60 seconds between requests and 5 per number per hour.",
+        "summary": "Sign out",
+        "description": "Ends the session of the cookie, if there is one. Always 204, so the frontend can call it without checking whether the session already expired.",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "getAuthMe",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "The signed-in user",
+        "responses": {
+          "200": {
+            "description": "The user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AuthUser"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password": {
+      "post": {
+        "operationId": "postAuthPassword",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change the password of the signed-in account",
+        "description": "8 to 128 characters, different from the current password, equal to the confirmation (ER-03-02). A wrong currentPassword is a 400 on that field and counts toward the login lockout. Success ends every session and OTP of the account, including this one, so the person signs in again. A failed validation changes nothing.",
+        "responses": {
+          "204": {
+            "description": "Password changed. All sessions ended; sign in again."
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. Retry-After says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/otp/request": {
+      "post": {
+        "operationId": "postAuthOtpRequest",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request an OTP by WhatsApp for activation, recovery or a number change",
+        "description": "Answers 202 with the same body whether or not the number is registered and whether or not a code was made (DEC-05). The limits apply to every submitted number: 60 seconds between requests and 5 per number per hour, answered 429 with Retry-After. The code is six digits, valid 5 minutes, sent only to the number on the account. If the WhatsApp message cannot be sent the answer is still 202; the person asks again after the wait or uses the help contact on the landing page.",
         "security": [],
         "responses": {
           "202": {
@@ -1343,16 +2452,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
           }
         },
         "requestBody": {
@@ -1370,12 +2469,11 @@
     "/auth/activate": {
       "post": {
         "operationId": "postAuthActivate",
-        "x-nms-draft": true,
         "tags": [
           "Auth"
         ],
-        "summary": "Activate an account with a valid OTP and set the password",
-        "description": "Recovery uses the same shape. A valid OTP ends all earlier sessions and OTPs. At most 5 wrong attempts per OTP.",
+        "summary": "Activate or recover an account with a valid OTP and set the password",
+        "description": "Activation and recovery share this shape. A valid OTP ends all earlier sessions and OTPs. At most 5 wrong attempts per OTP, then the code is void. A password equal to the current one is a 400 on password and leaves the code usable. Wrong, expired, used and void codes all answer the same 401.",
         "security": [],
         "responses": {
           "204": {
@@ -1400,26 +2498,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "description": "Too many requests. Retry-After says when to try again.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
           }
         },
         "requestBody": {
@@ -1434,22 +2512,67 @@
         }
       }
     },
-    "/customers": {
-      "get": {
-        "operationId": "getCustomers",
-        "x-nms-draft": true,
+    "/auth/phone-change/confirm": {
+      "post": {
+        "operationId": "postAuthPhoneChangeConfirm",
         "tags": [
-          "Customers"
+          "Auth"
         ],
-        "summary": "List customers",
-        "description": "Offset pagination. Admin and Officer only.",
+        "summary": "Prove a new phone number with its OTP",
+        "description": "Staff enter the new number on the customer (POST /customers/{customerId}/phone-change). The person who holds the new number requests a code with purpose phoneChange and confirms it here. Only then does the login number change, and every session and OTP issued before it stops working (ER-05-04). Staff never see the code.",
+        "security": [],
         "responses": {
-          "200": {
-            "description": "A page of customers",
+          "204": {
+            "description": "The number changed. Sign in with the new number."
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CustomerPage"
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The OTP is wrong, expired, or already used.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneChangeConfirm"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/staff-accounts": {
+      "post": {
+        "operationId": "postStaffAccounts",
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Create a staff account (Admin only)",
+        "description": "The account is Belum Aktif without a password. The person activates it with an OTP sent to the number (DEC-05). The Admin never sees the code or the password. Client accounts are created with the customer.",
+        "responses": {
+          "201": {
+            "description": "The created account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
                 }
               }
             }
@@ -1484,8 +2607,1604 @@
               }
             }
           },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
+          "409": {
+            "description": "The number belongs to another account (PHONE_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffCreate"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getStaffAccounts",
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "List staff accounts (Admin only)",
+        "responses": {
+          "200": {
+            "description": "A page of staff accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "string",
+              "title": "greaterThanOrEqualTo(1)"
+            },
+            "description": "a number greater than or equal to 1"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "string",
+              "title": "between(1, 100)"
+            },
+            "description": "a number between 1 and 100"
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "$ref": "#/components/schemas/StaffRole"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(150)",
+              "maxLength": 150
+            },
+            "description": "a string at most 150 character(s) long"
+          }
+        ]
+      }
+    },
+    "/staff-accounts/{accountId}": {
+      "patch": {
+        "operationId": "patchStaffAccountsByAccountId",
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Change a staff member's name or role (Admin only)",
+        "description": "Send the version you read. A role change ends the account's sessions in the same transaction, so the new rights apply on the next request. A Client account answers 409 INVALID_STATE.",
+        "responses": {
+          "200": {
+            "description": "The updated account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version; current holds the latest account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accountId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/status": {
+      "put": {
+        "operationId": "putAccountsByAccountIdStatus",
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Activate or deactivate an account (Admin only)",
+        "description": "Applies to staff and Client accounts. Deactivation ends the sessions and OTPs in the same transaction, even when a Teknisi still has active tickets (ER-04-05). The audit trail keeps who, when, why, and the status before and after. Reactivation returns the account to Aktif, or to Belum Aktif if it never set a password. Setting the status it already has answers 409 INVALID_STATE.",
+        "responses": {
+          "200": {
+            "description": "The updated account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, or the status is already set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accountId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountStatusChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ticket-categories": {
+      "get": {
+        "operationId": "getTicketCategories",
+        "tags": [
+          "ticket-categories"
+        ],
+        "summary": "List ticket categorys",
+        "description": "Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). Initial entries follow DEC-01 K4; names are editable and the ids are stable. A disaster category does not set Critical automatically. Catalogue management is distinct from correcting one ticket's category (NMS-32 AC8).",
+        "responses": {
+          "200": {
+            "description": "The ticket categorys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "$ref": "#/components/schemas/MasterStatus"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postTicketCategories",
+        "tags": [
+          "ticket-categories"
+        ],
+        "summary": "Add a ticket category (Admin or Officer)",
+        "description": "The name is required and unique in this list without regard to case or repeated spaces. The change is audited.",
+        "responses": {
+          "201": {
+            "description": "The created ticket category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The name is already used in this list (NAME_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ticket-categories/{categoryId}": {
+      "patch": {
+        "operationId": "patchTicketCategoriesByCategoryId",
+        "tags": [
+          "ticket-categories"
+        ],
+        "summary": "Rename, describe, deactivate or reactivate a ticket category (Admin or Officer)",
+        "description": "Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.",
+        "responses": {
+          "200": {
+            "description": "The updated ticket category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version (current holds the latest) or NAME_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "categoryId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTicketCategoriesByCategoryId",
+        "tags": [
+          "ticket-categories"
+        ],
+        "summary": "Delete a ticket category that nothing uses (Admin or Officer)",
+        "description": "Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something still refers to it (IN_USE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "categoryId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ]
+      }
+    },
+    "/service-packages": {
+      "get": {
+        "operationId": "getServicePackages",
+        "tags": [
+          "service-packages"
+        ],
+        "summary": "List service packages",
+        "description": "Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). A package has no price, tariff or billing data (ER-09-08).",
+        "responses": {
+          "200": {
+            "description": "The service packages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "$ref": "#/components/schemas/MasterStatus"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postServicePackages",
+        "tags": [
+          "service-packages"
+        ],
+        "summary": "Add a service package (Admin or Officer)",
+        "description": "The name is required and unique in this list without regard to case or repeated spaces. The change is audited.",
+        "responses": {
+          "201": {
+            "description": "The created service package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The name is already used in this list (NAME_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePackageCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/service-packages/{packageId}": {
+      "patch": {
+        "operationId": "patchServicePackagesByPackageId",
+        "tags": [
+          "service-packages"
+        ],
+        "summary": "Rename, describe, deactivate or reactivate a service package (Admin or Officer)",
+        "description": "Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.",
+        "responses": {
+          "200": {
+            "description": "The updated service package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version (current holds the latest) or NAME_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "packageId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePackageUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteServicePackagesByPackageId",
+        "tags": [
+          "service-packages"
+        ],
+        "summary": "Delete a service package that nothing uses (Admin or Officer)",
+        "description": "Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something still refers to it (IN_USE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "packageId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ]
+      }
+    },
+    "/service-regions": {
+      "get": {
+        "operationId": "getServiceRegions",
+        "tags": [
+          "service-regions"
+        ],
+        "summary": "List service regions",
+        "description": "Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02).",
+        "responses": {
+          "200": {
+            "description": "The service regions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRegionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "$ref": "#/components/schemas/MasterStatus"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postServiceRegions",
+        "tags": [
+          "service-regions"
+        ],
+        "summary": "Add a service region (Admin or Officer)",
+        "description": "The name is required and unique in this list without regard to case or repeated spaces. The change is audited.",
+        "responses": {
+          "201": {
+            "description": "The created service region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRegion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The name is already used in this list (NAME_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRegionCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/service-regions/{regionId}": {
+      "patch": {
+        "operationId": "patchServiceRegionsByRegionId",
+        "tags": [
+          "service-regions"
+        ],
+        "summary": "Rename, describe, deactivate or reactivate a service region (Admin or Officer)",
+        "description": "Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.",
+        "responses": {
+          "200": {
+            "description": "The updated service region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRegion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version (current holds the latest) or NAME_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRegionConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regionId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRegionUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteServiceRegionsByRegionId",
+        "tags": [
+          "service-regions"
+        ],
+        "summary": "Delete a service region that nothing uses (Admin or Officer)",
+        "description": "Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something still refers to it (IN_USE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regionId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ]
+      }
+    },
+    "/voucher-types": {
+      "get": {
+        "operationId": "getVoucherTypes",
+        "tags": [
+          "voucher-types"
+        ],
+        "summary": "List voucher types",
+        "description": "Sorted by name. Use status=Aktif to fill a picker: a Nonaktif entry is not offered for new selections but stays readable in history (ER-UM-02). A type has no price or serial number (NMS-42 AC2).",
+        "responses": {
+          "200": {
+            "description": "The voucher types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherTypeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "$ref": "#/components/schemas/MasterStatus"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postVoucherTypes",
+        "tags": [
+          "voucher-types"
+        ],
+        "summary": "Add a voucher type (Admin or Officer)",
+        "description": "The name is required and unique in this list without regard to case or repeated spaces. The change is audited.",
+        "responses": {
+          "201": {
+            "description": "The created voucher type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherType"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The name is already used in this list (NAME_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoucherTypeCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voucher-types/{voucherTypeId}": {
+      "patch": {
+        "operationId": "patchVoucherTypesByVoucherTypeId",
+        "tags": [
+          "voucher-types"
+        ],
+        "summary": "Rename, describe, deactivate or reactivate a voucher type (Admin or Officer)",
+        "description": "Send the version you read. Renaming keeps the id and every reference. Nonaktif removes it from new selections without touching services or tickets that already use it. A stale version answers 409 VERSION_CONFLICT with current.",
+        "responses": {
+          "200": {
+            "description": "The updated voucher type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherType"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version (current holds the latest) or NAME_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherTypeConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voucherTypeId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoucherTypeUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteVoucherTypesByVoucherTypeId",
+        "tags": [
+          "voucher-types"
+        ],
+        "summary": "Delete a voucher type that nothing uses (Admin or Officer)",
+        "description": "Data that is already used cannot be deleted and answers 409 IN_USE; deactivate it instead (ER-UM-02).",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something still refers to it (IN_USE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voucherTypeId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          }
+        ]
+      }
+    },
+    "/customers": {
+      "post": {
+        "operationId": "postCustomers",
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Create a customer and the Client account together (Admin or Officer)",
+        "description": "One transaction: a failure leaves neither the customer nor the account (ER-05-03). The account is Belum Aktif without a password, and no OTP exists yet. The Client asks for it from the activation page (ER-05-01). A customer who already has an account number answers 409 PHONE_TAKEN.",
+        "responses": {
+          "201": {
+            "description": "The created customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The number belongs to another account (PHONE_TAKEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerCreate"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getCustomers",
+        "tags": [
+          "Customers"
+        ],
+        "summary": "List customers (Admin or Officer)",
+        "description": "Offset pagination, newest first. The search matches id, name and phone.",
+        "responses": {
+          "200": {
+            "description": "A page of customers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1530,11 +4249,11 @@
     "/customers/{customerId}": {
       "get": {
         "operationId": "getCustomersByCustomerId",
-        "x-nms-draft": true,
         "tags": [
           "Customers"
         ],
         "summary": "Get one customer",
+        "description": "Staff read any customer. A Client reads only their own profile; another customer's id answers 404, as if it did not exist (ER-04-04). The KTP is never part of this response.",
         "responses": {
           "200": {
             "description": "The customer",
@@ -1566,8 +4285,8 @@
               }
             }
           },
-          "404": {
-            "description": "The record does not exist or is not visible to the caller.",
+          "403": {
+            "description": "The role may not do this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1576,8 +4295,8 @@
               }
             }
           },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1605,12 +4324,11 @@
       },
       "patch": {
         "operationId": "patchCustomersByCustomerId",
-        "x-nms-draft": true,
         "tags": [
           "Customers"
         ],
-        "summary": "Update a customer",
-        "description": "Send the version you read. If someone else changed the record first, the answer is 409 with the current record and nothing is overwritten (ER-06-40).",
+        "summary": "Update a customer's name or address (Admin or Officer)",
+        "description": "Send the version you read. If someone else changed the record first, the answer is 409 with the current record and nothing is overwritten (ER-06-40). The number changes through the phone-change operation, not here.",
         "responses": {
           "200": {
             "description": "The updated customer",
@@ -1671,16 +4389,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
           }
         },
         "parameters": [
@@ -1710,14 +4418,111 @@
         }
       }
     },
+    "/customers/{customerId}/phone-change": {
+      "post": {
+        "operationId": "postCustomersByCustomerIdPhoneChange",
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Enter a new phone number for a customer (Admin or Officer)",
+        "description": "Check the person's identity first, as company procedure says. If the account is Belum Aktif the number is corrected at once and earlier OTPs are void. If it is Aktif the login number does not change yet: the holder of the new number requests an OTP with purpose phoneChange and confirms it at /auth/phone-change/confirm, and only then do the number and all sessions change (ER-05-04). Staff never see the code. A Nonaktif account answers 409 INVALID_STATE. Services and tickets stay with the customer (ER-05-05).",
+        "responses": {
+          "200": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerPhoneChangeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PHONE_TAKEN, or the account is Nonaktif (INVALID_STATE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerPhoneChange"
+              }
+            }
+          }
+        }
+      }
+    },
     "/customers/{customerId}/services": {
       "get": {
         "operationId": "getCustomersByCustomerIdServices",
-        "x-nms-draft": true,
         "tags": [
           "Services"
         ],
         "summary": "List the services of a customer",
+        "description": "Staff read any customer's services. A Client reads their own, one entry per installation location; another customer's id answers 404.",
         "responses": {
           "200": {
             "description": "A page of services",
@@ -1749,8 +4554,8 @@
               }
             }
           },
-          "404": {
-            "description": "The record does not exist or is not visible to the caller.",
+          "403": {
+            "description": "The role may not do this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1759,8 +4564,8 @@
               }
             }
           },
-          "501": {
-            "description": "Draft contract. The endpoint is not implemented yet.",
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1801,6 +4606,717 @@
               "title": "between(1, 100)"
             },
             "description": "a number between 1 and 100"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postCustomersByCustomerIdServices",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Add a service to a customer (Admin or Officer)",
+        "description": "The number is generated as YYYY-<customerId>-NN (NN 01 to 99, never reused, also after a service is deactivated). When all 99 are used the answer is 409 SERVICE_SEQUENCE_EXHAUSTED and nothing is created. Package and region must be Aktif master entries; an unknown or Nonaktif name is a 400 on that field. Install date cannot be in the future (WIB).",
+        "responses": {
+          "201": {
+            "description": "The created service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SERVICE_SEQUENCE_EXHAUSTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{serviceNumber}": {
+      "get": {
+        "operationId": "getServicesByServiceNumber",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Get one service",
+        "description": "A number may contain a slash (imported numbers can), so send it URL-encoded. A Client reads only their own services; another's number answers 404.",
+        "responses": {
+          "200": {
+            "description": "The service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceNumber",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "2026-1042-01"
+              ],
+              "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+            },
+            "required": true,
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchServicesByServiceNumber",
+        "tags": [
+          "Services"
+        ],
+        "summary": "Update a service (Admin or Officer)",
+        "description": "Send the version you read. Setting status to Nonaktif deletes nothing and leaves tickets in place (ER-09-06). A new address applies to new tickets and the map; existing tickets keep their snapshot (ER-09-07). Latitude and longitude go together. A stale version answers 409 VERSION_CONFLICT with current.",
+        "responses": {
+          "200": {
+            "description": "The updated service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The version is stale. The body carries the current record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConflict"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceNumber",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "2026-1042-01"
+              ],
+              "pattern": "^[A-Za-z0-9._/-]{1,40}$"
+            },
+            "required": true,
+            "description": "a string matching the pattern ^[A-Za-z0-9._/-]{1,40}$"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/identity-document": {
+      "put": {
+        "operationId": "putCustomersByCustomerIdIdentityDocument",
+        "tags": [
+          "Identity documents"
+        ],
+        "summary": "Upload or replace the KTP photo (Admin or Officer)",
+        "description": "multipart/form-data with one `file`. JPEG or PNG judged by content, not name or Content-Type. At most 5 MiB and 8000 x 8000 pixels. The image is decoded and re-encoded, which removes GPS and other metadata. It is stored encrypted on a private volume. Replacing removes the earlier file. Errors: FILE_TOO_LARGE 413, FILE_TYPE_UNSUPPORTED 415, FILE_CORRUPT 422 (empty or unreadable).",
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is too large (FILE_TOO_LARGE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Not a JPEG or PNG (FILE_TYPE_UNSUPPORTED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Empty or not a readable image (FILE_CORRUPT).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityDocumentUpload"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityDocumentUpload"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getCustomersByCustomerIdIdentityDocument",
+        "tags": [
+          "Identity documents"
+        ],
+        "summary": "What is stored for a customer (Admin or Officer)",
+        "description": "Type, size and time only. Use the link operation to open the file.",
+        "responses": {
+          "200": {
+            "description": "The stored file's details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer, or no file stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteCustomersByCustomerIdIdentityDocument",
+        "tags": [
+          "Identity documents"
+        ],
+        "summary": "Delete the KTP photo (Admin or Officer)",
+        "description": "Removes the record and the encrypted file. The deletion is audited.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer, or no file stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ]
+      }
+    },
+    "/customers/{customerId}/identity-document/link": {
+      "post": {
+        "operationId": "postCustomersByCustomerIdIdentityDocumentLink",
+        "tags": [
+          "Identity documents"
+        ],
+        "summary": "Ask for a 5 minute link to the KTP photo (Admin or Officer)",
+        "description": "States the purpose, which is kept in the audit trail with the person and the time. The link works only for the person who asked and only while they are signed in.",
+        "responses": {
+          "200": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityDocumentLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer, or no file stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1042"
+              ],
+              "pattern": "^\\d{1,20}$"
+            },
+            "required": true,
+            "description": "Digits only, kept as text so leading zeros stay."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityDocumentLinkRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-documents/{documentId}/file": {
+      "get": {
+        "operationId": "getIdentityDocumentsByDocumentIdFile",
+        "tags": [
+          "Identity documents"
+        ],
+        "summary": "Open the KTP photo through a link",
+        "description": "Needs the session cookie and the unexpired token from the link operation, issued to this same user. Every attempt is audited, refused ones too. The response is never cached, never sniffed, and has no thumbnail.",
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed validation. Only field paths are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role may not do this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "documentId",
+            "schema": {
+              "$ref": "#/components/schemas/UUID"
+            },
+            "required": true,
+            "description": "a Universally Unique Identifier"
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "schema": {
+              "type": "string",
+              "title": "maxLength(1024)",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "required": true,
+            "description": "a string at most 1024 character(s) long"
           }
         ]
       }
